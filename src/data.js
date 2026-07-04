@@ -35,7 +35,7 @@ export const SPECIES = {
     name: 'Turtle', tierNames: ['Turtle', 'Battle Shell', 'FORTRESS'],
     role: 'tank', dmg: 2, atkTime: 1.2, hp: 38, speed: 90, size: 12,
     body: '#7bb87f', belly: '#c8b878', accent: '#4a7a4e', shape: 'shell',
-    price: 10, sound: 'thunk', unlock: 0, water: 1,
+    price: 10, sound: 'thunk', unlock: 0, water: 1, sand: 1,
   },
   bunny: {
     name: 'Bunny', tierNames: ['Bunny', 'Jackrabbit', 'THE MULTIPLIER'],
@@ -117,6 +117,15 @@ export const ENEMIES = {
   cone: { // placed obstacle, not really an enemy but lives in the enemy pool
     name: 'Traffic Cone', hp: 10, dmg: 0, speed: 0, size: 10, xp: 1,
     body: '#e8762e', accent: '#f0f0f0', behavior: 'static',
+  },
+  secbot: {
+    name: 'Sec-Bot', hp: 16, dmg: 2, speed: 82, size: 13, xp: 3,
+    body: '#3a3f52', accent: '#ff3a3a', behavior: 'chase',
+  },
+  camdrone: {
+    name: 'Cam-Drone', hp: 14, dmg: 2, speed: 85, size: 11, xp: 3,
+    body: '#2e3440', accent: '#5adfff', behavior: 'shooter',
+    range: 240, keepDist: 180, shootCd: 2.2, projSpeed: 175, flies: true,
   },
   mowtron: {
     name: 'MOWTRON 9000', hp: 450, dmg: 5, speed: 40, size: 34, xp: 60, boss: true,
@@ -353,6 +362,37 @@ export const ARENAS = [
     ],
   },
   {
+    id: 'quarry', name: 'ROCKY QUARRY', emoji: '🪨',
+    blurb: 'boulders and HILLS — charge downhill, never fight uphill!',
+    ground: '#9a938a', ground2: '#7a746c',
+    weather: ['wind'],
+    obstacles: [
+      { kind: 'rock', x: 400, y: 300, r: 52 }, { kind: 'rock', x: 520, y: 380, r: 34 },
+      { kind: 'rock', x: 1250, y: 900, r: 56 }, { kind: 'rock', x: 1130, y: 990, r: 36 },
+      { kind: 'rock', x: 850, y: 620, r: 44 },
+      { kind: 'rock', x: 300, y: 1050, r: 40 }, { kind: 'rock', x: 1420, y: 320, r: 42 },
+      { kind: 'wall', x: 700, y: 150, w: 26, h: 200 },
+    ],
+    zones: [
+      { type: 'hill', shape: 'circle', x: 1200, y: 380, r: 200 },
+      { type: 'hill', shape: 'circle', x: 480, y: 850, r: 230 },
+    ],
+  },
+  {
+    id: 'dunes', name: 'SUNNY DUNES', emoji: '🏜️',
+    blurb: 'soft sand slows everyone — except turtles. Guard the oasis!',
+    ground: '#e0c078', ground2: '#c2a25c', waterColor: '#4ac2e0',
+    speedMul: 0.92, weather: ['wind'],
+    obstacles: [
+      { kind: 'rock', x: 500, y: 400, r: 38 }, { kind: 'rock', x: 1300, y: 850, r: 44 },
+      { kind: 'rock', x: 950, y: 250, r: 30 }, { kind: 'rock', x: 350, y: 950, r: 34 },
+      { kind: 'rock', x: 1450, y: 400, r: 36 },
+    ],
+    zones: [
+      { type: 'water', shape: 'circle', x: 850, y: 700, r: 130 }, // the oasis
+    ],
+  },
+  {
     id: 'plateau', name: 'STORM PLATEAU', emoji: '⛈️',
     blurb: 'wind shoves everything and LIGHTNING falls — watch the sky circles!',
     ground: '#7a8a72', ground2: '#5d6b58',
@@ -368,8 +408,29 @@ export const ARENAS = [
     ],
     zones: [],
   },
+  {
+    id: 'rooftop', name: 'MALL ROOFTOP', emoji: '🌃',
+    blurb: 'neon night, FIRE VENTS on a rhythm, and the security bots…',
+    ground: '#3c4254', ground2: '#2c3140', night: true,
+    weather: [],
+    mixSwap: { dustbot: 'secbot', tidydrone: 'camdrone' },
+    obstacles: [
+      // AC units and skylights: boxy rooftop furniture, sparse per the law.
+      { kind: 'wall', x: 350, y: 300, w: 160, h: 100 },
+      { kind: 'wall', x: 1200, y: 850, w: 160, h: 100 },
+      { kind: 'wall', x: 1150, y: 280, w: 110, h: 70 },
+      { kind: 'wall', x: 420, y: 950, w: 110, h: 70 },
+      { kind: 'rock', x: 850, y: 620, r: 40 },
+    ],
+    zones: [],
+    vents: [
+      { x: 650, y: 450 }, { x: 1050, y: 450 },
+      { x: 650, y: 880 }, { x: 1050, y: 880 },
+    ],
+  },
 ];
 export const ROBOT_SIZZLE = 0.08; // fraction of maxHp per second in water
+export const VENT = { period: 5.7, warnAt: 3.0, flameAt: 4.2, radius: 72, pulse: 0.5 };
 // Weather tuning: one place.
 export const WEATHER = {
   rain: { dur: [12, 18], botSlow: 0.86, mudGrow: 1.45 },

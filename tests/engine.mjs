@@ -851,7 +851,7 @@ console.log('S) M1: terrain, collision, water, arenas:');
 {
   const { ARENAS } = await load('src/data.js');
   const { slideObstacles } = await load('src/pool.js');
-  check(ARENAS.length === 4 && ARENAS[1].id === 'riverside' && ARENAS[2].id === 'farm' && ARENAS[3].id === 'plateau', 'four arenas: Backyard, Riverside, Farm, Plateau');
+  check(ARENAS.length === 7 && ARENAS.map(a => a.id).join(',') === 'backyard,riverside,farm,quarry,dunes,plateau,rooftop', 'seven arenas, the full world tour', ARENAS.map(a => a.id).join(','));
   // Slide-along: a walker pushed into a rock pops out, never inside.
   const rock = [{ kind: 'rock', x: 100, y: 100, r: 40 }];
   const s1 = slideObstacles(110, 100, 10, rock);
@@ -1008,6 +1008,83 @@ console.log('T) M2: weather + Muddy Farm + Storm Plateau:');
   }
   g.input.keys.delete('KeyD');
   check(!wedged, 'the no-maze law holds on the plateau');
+}
+
+console.log('U) M3: quarry hills, dune sand, rooftop vents + security bots:');
+{
+  const { ARENAS } = await load('src/data.js');
+  const qi = ARENAS.findIndex(a => a.id === 'quarry');
+  const di = ARENAS.findIndex(a => a.id === 'dunes');
+  const ri = ARENAS.findIndex(a => a.id === 'rooftop');
+  // Hills: climbing slow, descending fast.
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  g.save.arenasUnlocked = qi; g.save.arena = qi;
+  g.input.assign(0, 'kb1');
+  g.startRun();
+  const hz = g.zones.find(z => z.type === 'hill');
+  const climb = g.terrainMul(hz.x + 100, hz.y, -1, 0, {});
+  const descend = g.terrainMul(hz.x + 100, hz.y, 1, 0, {});
+  check(climb < 1 && descend > 1, 'hills: climbing slow, descending fast', climb.toFixed(2) + '/' + descend.toFixed(2));
+  // Dunes: sand slows walkers, turtles immune.
+  g.save.arenasUnlocked = di; g.save.arena = di;
+  g.startRun();
+  const walker = g.terrainMul(200, 200, 1, 0, {});
+  const turtle = g.terrainMul(200, 200, 1, 0, { sandImmune: true });
+  check(walker < 1 && turtle === 1, 'dune sand slows walkers, not turtles', walker.toFixed(2) + '/' + turtle);
+  check(SPECIES.turtle.sand === 1, 'turtles trained their whole lives for this');
+  check(g.inWater(850, 700), 'the oasis is wet (robots beware)');
+}
+{
+  // Rooftop: vents cycle and burn; security bots swap in.
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  const { ARENAS } = await load('src/data.js');
+  const ri = ARENAS.findIndex(a => a.id === 'rooftop');
+  g.save.arenasUnlocked = ri; g.save.arena = ri;
+  g.input.assign(0, 'kb1');
+  g.startRun();
+  check(g.vents.length === 4, 'four fire vents on the rooftop');
+  // Park a bot on a vent and fast-forward a full cycle: it must burn.
+  const p = g.players[0];
+  p.invuln = 9999; p.x = 200; p.y = 200;
+  const bot = g.enemies.spawnNow(g, 'dustbot', g.vents[0].x, g.vents[0].y);
+  bot.sneaky = false; bot.hp = bot.maxHp = 1000;
+  let burned = false;
+  for (let i = 0; i < 60 * 7 && !burned; i++) {
+    bot.x = g.vents[0].x; bot.y = g.vents[0].y;
+    p.invuln = 9999; p.hp = p.maxHp;
+    g.frame(1 / 60);
+    burned = bot.hp < 999;
+  }
+  check(burned, 'fire vents burn robots on the flame beat', 'hp=' + bot.hp.toFixed(0));
+  // Mix swap: wave 1 spawns become Sec-Bots on the rooftop.
+  let sawSec = false;
+  for (let i = 0; i < 60 * 20 && !sawSec; i++) {
+    p.invuln = 9999; p.hp = p.maxHp; p.x = 200; p.y = 200;
+    g.frame(1 / 60);
+    if (g.state !== 'run') break;
+    sawSec = g.enemies.telegraphs.some(t => t.kind === 'secbot');
+    for (let k = 0; k < g.enemies.pool.n && !sawSec; k++) if (g.enemies.pool.get(k).kind === 'secbot') sawSec = true;
+  }
+  check(sawSec, 'the rooftop deploys SEC-BOTS instead of dust-bots');
+  // No-wedge law: rooftop furniture.
+  let wedged = false, still = 0, lx = p.x, ly = p.y;
+  g.input.keys.add('KeyD');
+  for (let i = 0; i < 60 * 8; i++) {
+    p.invuln = 9999; p.hp = p.maxHp;
+    g.frame(1 / 60);
+    if (g.state !== 'run') break;
+    const moved = Math.hypot(p.x - lx, p.y - ly);
+    const midField = p.x > 60 && p.x < g.arena.w - 60 && p.y > 60 && p.y < g.arena.h - 60;
+    if (moved < 0.2 && midField) still++; else still = 0;
+    if (still > 45) { wedged = true; break; }
+    lx = p.x; ly = p.y;
+  }
+  g.input.keys.delete('KeyD');
+  check(!wedged, 'the no-maze law holds on the rooftop');
 }
 
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);

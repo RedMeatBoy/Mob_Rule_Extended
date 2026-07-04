@@ -32,14 +32,22 @@ Everything from the Upgraded Edition, plus:
   acorns for… something. Could be a KING. Could be three bees.
 - **🎯 NEXT GOAL** — every run ends by pointing at the next thing your
   bank can (almost) afford. Losing is still progress.
-- **🗺️ FOUR ARENAS** — win in the newest arena to unlock the next:
+- **🗺️ SEVEN ARENAS** — win in the newest arena to unlock the next:
   - **🏞️ RIVERSIDE PARK** — stream, bridges, ponds. **Robots
     short-circuit in water**; ducks, turtles & penguins swim free.
   - **🚜 MUDDY FARM** — mud pits slow everyone except frogs & skunks,
     the red barn has collision now, and **rain** makes the mud spread.
+  - **🪨 ROCKY QUARRY** — boulder fields and **hills**: charging downhill
+    is fast, fighting uphill is a mistake.
+  - **🏜️ SUNNY DUNES** — soft sand slows everyone (except turtles, who
+    trained their whole lives for this) and there's one wet oasis the
+    robots really shouldn't chase you into.
   - **⛈️ STORM PLATEAU** — a defensible valley, **wind** that shoves
     shots and fliers, and **lightning**: dodge the yellow circles
     (robots don't dodge — enjoy).
+  - **🌃 MALL ROOFTOP** — the neon-night finale: **fire vents** erupt on
+    a learnable rhythm (fire burns robots too), and the Tidy Empire
+    sends its SEC-BOTS and CAM-DRONES.
 - **🌦️ WEATHER** — arena-flavored events with spoken warnings; every
   hazard hurts the Tidy Empire at least as much as it hurts you.
 - **10 more Training Camp upgrades** — Acorn Magnet, Snack Lover, Field
@@ -148,7 +156,7 @@ rebuild the parade.
 ```bash
 git clone https://github.com/RedMeatBoy/Mob_Rule.git
 cd Mob_Rule && npx serve     # or python -m http.server
-node tests/engine.mjs        # 172 headless assertions
+node tests/engine.mjs        # 189 headless assertions
 node tests/simulate.mjs 24   # bot plays full runs; reports difficulty band
 node tests/perf.mjs          # 150-critter mob tick time
 ```

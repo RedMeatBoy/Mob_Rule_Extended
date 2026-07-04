@@ -2,7 +2,7 @@
 // crossroads picks, camera, meta unlocks.
 
 import { Pool, clamp, lerp, dist2, randRange, weightedPick, mulberry32, slideObstacles } from './pool.js';
-import { SPECIES, SPECIES_IDS, WAVES, CHOICES, UNLOCK_ORDER, MOB_CAP, CHARACTERS, DIFFICULTIES, TRAIN_COSTS, PIPER_UPGRADES, CHALLENGES, SPICES, ARENAS, WEATHER } from './data.js';
+import { SPECIES, SPECIES_IDS, WAVES, CHOICES, UNLOCK_ORDER, MOB_CAP, CHARACTERS, DIFFICULTIES, TRAIN_COSTS, PIPER_UPGRADES, CHALLENGES, SPICES, ARENAS, WEATHER, VENT } from './data.js';
 import { MobSystem } from './critters.js';
 import { EnemySystem } from './enemies.js';
 import { Piper } from './piper.js';
@@ -203,6 +203,7 @@ export class Game {
     this.obstacles = this.arenaDef.obstacles || [];
     this.zones = this.arenaDef.zones || [];
     this.weather = { type: null, t: 0, warnT: 0, next: 14 + Math.random() * 8 };
+    this.vents = (this.arenaDef.vents || []).map((v, i) => ({ x: v.x, y: v.y, phase: i * 1.9, pulseT: 0 }));
     this.mudGrow = 1;
     this.windX = 0; this.windY = 0;
     this.bolts = [];
@@ -454,6 +455,25 @@ export class Game {
   }
   inWater(x, y) { return this.inZone(x, y, 'water'); }
   inMud(x, y) { return this.inZone(x, y, 'mud'); }
+  // One terrain-speed answer for any walker. ov = per-entity multipliers
+  // (species affinities folded in by the caller); fliers pass flies:true.
+  terrainMul(x, y, vx, vy, ov) {
+    if (ov && ov.flies) return 1;
+    let m = 1;
+    if (this.arenaDef && this.arenaDef.speedMul && !(ov && ov.sandImmune)) m *= this.arenaDef.speedMul;
+    if (this.inWater(x, y)) m *= (ov && ov.water != null) ? ov.water : 0.55;
+    else if (this.inMud(x, y)) m *= (ov && ov.mud != null) ? ov.mud : 0.6;
+    // Hills: the zone center is the peak — climbing is slow, descending fast.
+    for (const z of this.zones) {
+      if (z.type !== 'hill') continue;
+      if (dist2(x, y, z.x, z.y) < z.r * z.r) {
+        const dot = (x - z.x) * vx + (y - z.y) * vy;
+        m *= dot < 0 ? 0.82 : 1.15;
+        break;
+      }
+    }
+    return m;
+  }
 
   // The Hades rule: every run ends pointing at the NEXT thing you want.
   computeNextGoal() {
@@ -749,7 +769,9 @@ export class Game {
       this.spawnAcc += rate * dt;
       while (this.spawnAcc >= 1 && this.enemies.count() < 130) {
         this.spawnAcc -= 1;
-        const kind = weightedPick(def.mix, m => m[1])[0];
+        let kind = weightedPick(def.mix, m => m[1])[0];
+        const swap = this.arenaDef && this.arenaDef.mixSwap;
+        if (swap && swap[kind]) kind = swap[kind];
         const pos = this.spawnPos();
         this.enemies.telegraphSpawn(kind, pos.x, pos.y, def.elite && Math.random() < 0.35);
       }
@@ -850,6 +872,34 @@ export class Game {
       }
       if ((!wx.type || wx.type !== 'rain') && this.mudGrow > 1) this.mudGrow = Math.max(1, this.mudGrow - dt * 0.03);
     }
+    // FIRE VENTS (rooftop): idle → glow warning → flame pulse. Fire is
+    // fair: it burns robots, critters, and pipers alike. Learn the rhythm.
+    for (const v of this.vents) {
+      const t = (this.time + v.phase) % VENT.period;
+      v.stage = t < VENT.warnAt ? 0 : t < VENT.flameAt ? 1 : 2;
+      if (v.stage === 2) {
+        v.pulseT -= dt;
+        if (v.pulseT <= 0) {
+          v.pulseT = VENT.pulse;
+          const R2 = VENT.radius;
+          const P3 = this.enemies.pool;
+          for (let k = 0; k < P3.n; k++) {
+            const e = P3.get(k);
+            if (!e.dead && !e.def.flies && dist2(v.x, v.y, e.x, e.y) < R2 * R2) {
+              this.enemies.hurt(this, e, e.maxHp * (e.boss ? 0.03 : 0.14), null, {});
+            }
+          }
+          this.mob.grid.query(v.x, v.y, R2, c => {
+            if (!c.bagged && dist2(v.x, v.y, c.x, c.y) < R2 * R2) this.mob.hurt(this, c, 5, null);
+          });
+          for (const p of this.players) {
+            if (!p.dead && !p.downed && dist2(v.x, v.y, p.x, p.y) < R2 * R2) p.hurt(this, 10, null);
+          }
+          this.fx.sparks(v.x, v.y - 8, 4);
+        }
+      } else v.pulseT = 0;
+    }
+
     // Lightning bolts land on everyone under the circle — including robots.
     for (let i = this.bolts.length - 1; i >= 0; i--) {
       const b = this.bolts[i];

@@ -10,6 +10,16 @@ Space sends ONE out to hunt (hold = stream), Shift recalls one (hold = all).
 Piper has 100 HP + slow regen + apple drops (+25). Music: 5 songs 30s+ each,
 rotating every ~2 min at song boundaries.
 
+M3 WORLD TOUR (all 7 arenas complete): terrainMul(x,y,vx,vy,ov) consolidates
+water/mud/sand/arena-speedMul/hills (hill zone: center=peak, dot(pos-center,
+vel)<0 = climbing ×0.82 else ×1.15); dunes arena speedMul 0.92 (turtle
+sand:1 immune via ov.sandImmune); rooftop: night:true (helipad render),
+vents[] (VENT in data: 5.7s cycle, warn 3.0, flame 4.2, r72; burns bots
+14%maxHp/0.5s pulse, boss 3%, critters 5, piper 10; stage rendered grate/
+glow/flame), mixSwap {dustbot→secbot, tidydrone→camdrone} applied at
+weightedPick spawn (recolored reskins; kawaii enemy art is Brad's wave C).
+Sims: quarry median 8, dunes 9, rooftop 10 — all IN BAND. 189 assertions.
+
 M2 WEATHER (per roadmap): WEATHER in data.js (rain/wind/lightning tuning);
 game.weather state machine (event every 16-28s on arenas with a weather
 list, 2.2s spoken telegraph); rain: bots ×0.86 speed + mudGrow →1.45 (dries

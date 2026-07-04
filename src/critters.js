@@ -303,10 +303,15 @@ export class MobSystem {
       if (!piper) continue;
       const def = SPECIES[c.sp];
       let spd = statFor(c.sp, c.tier, 'speed') * (1 + this.buffs.speed);
-      // Water: fliers soar over, swimmers glide, everyone else wades.
-      if (!def.flies && game.inWater(c.x, c.y)) spd *= (def.water != null ? def.water : 0.55);
-      // Mud: frogs and skunks are immune (they LIVE for this).
-      if (!def.flies && game.inMud && game.inMud(c.x, c.y)) spd *= (def.mud ? 1 : 0.6);
+      // Terrain: water/mud/sand/hills, with species affinities folded in.
+      if (game.terrainMul) {
+        spd *= game.terrainMul(c.x, c.y, c.vx, c.vy, {
+          flies: def.flies,
+          water: def.water != null ? def.water : 0.55,
+          mud: def.mud ? 1 : 0.6,
+          sandImmune: !!def.sand,
+        });
+      }
       // Wind shoves the light fliers around.
       if (def.flies && (game.windX || game.windY)) { c.x += game.windX * 20 * dt; c.y += game.windY * 20 * dt; }
       c.mods = piper.char || c.mods || null;

@@ -251,12 +251,13 @@ export class EnemySystem {
 
   behave(e, dt, game) {
     const slowMul = e.slowT > 0 ? 0.45 : 1;
-    const wet = !e.def.flies && game.inWater(e.x, e.y);
-    const muddy = !e.def.flies && game.inMud && game.inMud(e.x, e.y);
     const rainy = game.weather && game.weather.type === 'rain' && !e.def.flies;
+    const terra = game.terrainMul
+      ? game.terrainMul(e.x, e.y, e.vx, e.vy, { flies: e.def.flies, water: 0.7, mud: 0.75 })
+      : 1;
     const seek = (x, y, sp) => {
       const d = Math.hypot(x - e.x, y - e.y) || 1;
-      const m = slowMul * (wet ? 0.7 : 1) * (muddy ? 0.75 : 1) * (rainy ? 0.86 : 1);
+      const m = slowMul * terra * (rainy ? 0.86 : 1);
       e.vx = (x - e.x) / d * sp * m;
       e.vy = (y - e.y) / d * sp * m;
       e.x += e.vx * dt; e.y += e.vy * dt;

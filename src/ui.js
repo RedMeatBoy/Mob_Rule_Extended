@@ -433,12 +433,35 @@ export class UI {
     const ar = g.arenaDef || ARENAS[0];
     ctx.fillStyle = ar.ground || '#79b562';
     ctx.fillRect(0, 0, g.arena.w, g.arena.h);
-    // Mowed-stripe texture (the Tidy Empire's dream, our battlefield).
-    ctx.fillStyle = 'rgba(255,255,255,0.045)';
-    for (let y = 0; y < g.arena.h; y += 120) ctx.fillRect(0, y, g.arena.w, 60);
+    if (ar.night) {
+      // Rooftop: helipad rings + neon edge glow instead of mow stripes.
+      ctx.strokeStyle = 'rgba(90,223,255,0.16)'; ctx.lineWidth = 10;
+      ctx.beginPath(); ctx.arc(g.arena.w / 2, g.arena.h / 2, 220, 0, 6.29); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,95,180,0.13)'; ctx.lineWidth = 6;
+      ctx.strokeRect(60, 60, g.arena.w - 120, g.arena.h - 120);
+      ctx.fillStyle = 'rgba(255,255,255,0.03)';
+      for (let y = 0; y < g.arena.h; y += 160) ctx.fillRect(0, y, g.arena.w, 80);
+    } else {
+      // Mowed-stripe texture (the Tidy Empire's dream, our battlefield).
+      ctx.fillStyle = 'rgba(255,255,255,0.045)';
+      for (let y = 0; y < g.arena.h; y += 120) ctx.fillRect(0, y, g.arena.w, 60);
+    }
     // Water zones (under everything that walks).
     if (g.zones && g.zones.length) {
       for (const z of g.zones) {
+        if (z.type === 'hill') {
+          const grd2 = ctx.createRadialGradient(z.x, z.y, z.r * 0.1, z.x, z.y, z.r);
+          grd2.addColorStop(0, 'rgba(255,255,255,0.22)');
+          grd2.addColorStop(0.7, 'rgba(255,255,255,0.05)');
+          grd2.addColorStop(1, 'rgba(20,25,15,0.22)');
+          ctx.fillStyle = grd2;
+          ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, 6.29); ctx.fill();
+          ctx.strokeStyle = 'rgba(30,35,25,0.35)'; ctx.lineWidth = 3;
+          ctx.setLineDash([10, 8]);
+          ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, 6.29); ctx.stroke();
+          ctx.setLineDash([]);
+          continue;
+        }
         if (z.type === 'mud') {
           const gr = (g.mudGrow || 1);
           ctx.fillStyle = ar.mudColor || '#6f5230';
@@ -478,6 +501,43 @@ export class UI {
         }
         ctx.fillStyle = '#7a5f38';
         ctx.fillRect(b.x - 4, b.y, 5, b.h); ctx.fillRect(b.x + b.w - 1, b.y, 5, b.h);
+      }
+    }
+    // Fire vents: grate → orange glow → FLAME. Learn the rhythm.
+    if (g.vents && g.vents.length) {
+      for (const v of g.vents) {
+        // Grate.
+        ctx.fillStyle = '#23262f';
+        ctx.beginPath(); ctx.arc(v.x, v.y, 26, 0, 6.29); ctx.fill();
+        ctx.strokeStyle = '#4a4f5e'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(v.x, v.y, 26, 0, 6.29); ctx.stroke();
+        for (let k = -1; k <= 1; k++) {
+          ctx.beginPath(); ctx.moveTo(v.x - 18, v.y + k * 10); ctx.lineTo(v.x + 18, v.y + k * 10); ctx.stroke();
+        }
+        if (v.stage === 1) {
+          // Warning glow.
+          ctx.globalAlpha = 0.35 + Math.sin(this.t * 14) * 0.2;
+          ctx.fillStyle = '#ff7a2e';
+          ctx.beginPath(); ctx.arc(v.x, v.y, 66, 0, 6.29); ctx.fill();
+          ctx.globalAlpha = 1;
+        } else if (v.stage === 2) {
+          // FLAME: layered tongues.
+          const fl = Math.sin(this.t * 22);
+          ctx.globalAlpha = 0.85;
+          ctx.fillStyle = '#ff8a2e';
+          ctx.beginPath();
+          ctx.moveTo(v.x - 30, v.y + 8);
+          ctx.quadraticCurveTo(v.x - 20, v.y - 60 - fl * 8, v.x, v.y - 88 - fl * 12);
+          ctx.quadraticCurveTo(v.x + 20, v.y - 60 + fl * 8, v.x + 30, v.y + 8);
+          ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#ffd166';
+          ctx.beginPath();
+          ctx.moveTo(v.x - 16, v.y + 6);
+          ctx.quadraticCurveTo(v.x - 8, v.y - 40 + fl * 6, v.x, v.y - 58 - fl * 8);
+          ctx.quadraticCurveTo(v.x + 8, v.y - 40 - fl * 6, v.x + 16, v.y + 6);
+          ctx.closePath(); ctx.fill();
+          ctx.globalAlpha = 1;
+        }
       }
     }
     // Obstacles: rocks and low walls (entities slide along these).
