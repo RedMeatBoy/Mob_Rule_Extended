@@ -174,11 +174,11 @@ export class UI {
         // Art style A/B: B swaps the frogs for the Blender kawaii build.
         const bHeld = inp.keys.has('KeyB');
         if (bHeld && !this.artKeyHeld) {
-          g.save.artTest = !g.save.artTest;
+          g.save.classicArt = !g.save.classicArt;
           g.persist();
           g.audio.sfx('uiPick');
-          this.banner(g.save.artTest ? '🎨 NEW ART: kawaii frogs ON' : '🎨 classic art', '#ff8fb3');
-          g.audio.say(g.save.artTest ? 'New art test! Look at the frogs!' : 'Classic art!', true);
+          this.banner(g.save.classicArt ? '🎨 CLASSIC art mode' : '🎨 kawaii art', '#ff8fb3');
+          g.audio.say(g.save.classicArt ? 'Classic art mode! So retro!' : 'Kawaii mode!', true);
         }
         this.artKeyHeld = bHeld;
         const n = 11;
@@ -660,7 +660,7 @@ export class UI {
         ctx.beginPath(); ctx.arc(c.x, c.y, 30, 0, 6.29); ctx.fill();
         ctx.globalAlpha = 1;
       }
-      const cageImg = g.save.artTest && g.artFrames.props
+      const cageImg = !g.save.classicArt && g.artFrames.props
         ? g.artFrames.props[c.rescue ? 'rescuecage' : 'cage'] : null;
       if (cageImg && cageImg.complete && cageImg.naturalWidth) {
         ctx.drawImage(cageImg, c.x - 30, c.y - 34 + wb, 60, 60);
@@ -702,7 +702,7 @@ export class UI {
     for (let i = 0; i < A.n; i++) {
       const a = A.get(i);
       const x = lerp(a.px, a.x, g.alpha), y = lerp(a.py, a.y, g.alpha) + Math.sin(a.bob) * 2;
-      const acornImg = g.save.artTest && g.artFrames.props ? g.artFrames.props.acorn : null;
+      const acornImg = !g.save.classicArt && g.artFrames.props ? g.artFrames.props.acorn : null;
       if (acornImg && acornImg.complete && acornImg.naturalWidth) {
         ctx.drawImage(acornImg, x - 10, y - 12, 20, 20);
       } else {
@@ -716,7 +716,7 @@ export class UI {
     // Snacks (healing apples — bots confiscate them from picnics).
     for (const s of g.snacks) {
       const y2 = s.y + Math.sin(s.bob) * 2;
-      const appleImg = g.save.artTest && g.artFrames.props ? g.artFrames.props.apple : null;
+      const appleImg = !g.save.classicArt && g.artFrames.props ? g.artFrames.props.apple : null;
       if (appleImg && appleImg.complete && appleImg.naturalWidth) {
         ctx.drawImage(appleImg, s.x - 14, y2 - 16, 28, 28);
         continue;
@@ -1833,8 +1833,8 @@ export class UI {
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
     ctx.fillText(`lifetime acorns: ${g.save.acorns} · best wave: ${g.save.bestWave} · biggest mob ever: ${g.save.biggestMob}`, VIEW_W / 2, 650);
     ctx.fillText('tip: ' + this.tip, VIEW_W / 2, 672);
-    ctx.fillStyle = g.save.artTest ? '#ff8fb3' : 'rgba(255,255,255,0.55)';
-    ctx.fillText('press B — art style test (kawaii frogs ' + (g.save.artTest ? 'ON 🐸✨' : 'off') + ')', VIEW_W / 2, 692);
+    ctx.fillStyle = g.save.classicArt ? 'rgba(255,255,255,0.55)' : '#ff8fb3';
+    ctx.fillText('press B — art: ' + (g.save.classicArt ? 'CLASSIC (retro)' : 'kawaii 🐸✨'), VIEW_W / 2, 692);
   }
 
   renderEnd(ctx, won) {

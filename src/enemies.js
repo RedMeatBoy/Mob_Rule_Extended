@@ -625,7 +625,7 @@ export class EnemySystem {
       ctx.fillStyle = 'rgba(40,60,30,0.28)';
       ctx.beginPath(); ctx.ellipse(x, y + e.size * 0.8, e.size * 0.85, e.size * 0.32, 0, 0, 6.29); ctx.fill();
       const shake = (e.state === 'aim' || e.state === 'vacuum') ? Math.sin(this.time * 40) * 1.5 : 0;
-      const artB = game.artFrames && game.artFrames.bots && game.save && game.save.artTest
+      const artB = game.artFrames && game.artFrames.bots && game.save && !game.save.classicArt
         ? game.artFrames.bots[e.kind] : null;
       const artReady = artB && artB.front && artB.front[0] && artB.front[0].complete && artB.front[0].naturalWidth;
       ctx.save();

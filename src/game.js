@@ -122,7 +122,7 @@ export class Game {
       spices: [false, false, false],
       arena: 0,
       arenasUnlocked: 0, // win in the newest arena to unlock the next
-      artTest: false,    // Blender kawaii-frog A/B (press B on the title)
+      classicArt: false, // kawaii is the game now; B brings back classic
       diff: 0,           // selected difficulty
       diffUnlocked: 0,   // highest unlocked difficulty
     };
@@ -150,7 +150,7 @@ export class Game {
         bestEndless: s.bestEndless || 0,
         quests: s.quests || {},
         spices: s.spices || [false, false, false],
-        artTest: !!s.artTest,
+        classicArt: !!s.classicArt,
         arena: Math.min(s.arena || 0, s.arenasUnlocked || 0),
         arenasUnlocked: Math.min(s.arenasUnlocked || 0, ARENAS.length - 1),
         diff: Math.min(s.diff || 0, s.diffUnlocked || 0),

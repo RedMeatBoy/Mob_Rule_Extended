@@ -135,7 +135,7 @@ export class Piper {
 
     if (this.invuln > 0 && Math.floor(this.invuln * 12) % 2 === 0) ctx.globalAlpha = 0.45;
     // Kawaii bandleader (Wave B): swap the body for the Blender build.
-    const artP = game.artFrames && game.artFrames.pipers && game.save && game.save.artTest
+    const artP = game.artFrames && game.artFrames.pipers && game.save && !game.save.classicArt
       ? game.artFrames.pipers[this.char.id] : null;
     if (artP && artP.front && artP.front[0] && artP.front[0].complete && artP.front[0].naturalWidth) {
       const moving2 = Math.abs(this.mx || 0) + Math.abs(this.my || 0) > 0.2;

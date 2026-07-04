@@ -621,7 +621,7 @@ export class MobSystem {
       ctx.save();
       ctx.translate(x, y + hop);
       ctx.scale(c.face * sq * this.sizeMul, (2 - sq) * this.sizeMul);
-      const artSet = game.save && game.save.artTest && game.artFrames ? game.artFrames[c.sp] : null;
+      const artSet = game.save && !game.save.classicArt && game.artFrames ? game.artFrames[c.sp] : null;
       const ready = artSet && artSet.front && artSet.front[0] && artSet.front[0].complete && artSet.front[0].naturalWidth;
       if (ready) {
         // 4-directional kawaii sprites: heading picks the view. The side
