@@ -842,5 +842,102 @@ console.log('R) Round 3: celebrations, endless, upgrade batch, quests, spice, fo
   check(g.wallet >= 17, 'three spices pay +75% acorns', 'wallet=' + g.wallet);
 }
 
+console.log('S) M1: terrain, collision, water, arenas:');
+{
+  const { ARENAS } = await load('src/data.js');
+  const { slideObstacles } = await load('src/pool.js');
+  check(ARENAS.length === 2 && ARENAS[1].id === 'riverside', 'two arenas: Backyard + Riverside Park');
+  // Slide-along: a walker pushed into a rock pops out, never inside.
+  const rock = [{ kind: 'rock', x: 100, y: 100, r: 40 }];
+  const s1 = slideObstacles(110, 100, 10, rock);
+  check(Math.hypot(s1.x - 100, s1.y - 100) >= 49.9, 'slide pushes out of rocks');
+  const wall = [{ kind: 'wall', x: 200, y: 200, w: 100, h: 20 }];
+  const s2 = slideObstacles(250, 205, 10, wall);
+  check(s2.y <= 190.1 || s2.y >= 229.9, 'slide pushes out of walls', 'y=' + s2.y);
+}
+{
+  // Riverside: piper walks THROUGH the rock field and never wedges.
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  g.save.arenasUnlocked = 1; g.save.arena = 1;
+  g.input.assign(0, 'kb1');
+  g.startRun();
+  const p = g.players[0];
+  p.invuln = 9999;
+  // March at each compass point for 8s; position must keep moving.
+  const dirs = [['KeyD', 1, 0], ['KeyS', 0, 1], ['KeyA', -1, 0], ['KeyW', 0, -1]];
+  let wedged = false;
+  for (const [key] of dirs) {
+    let still = 0, lx = p.x, ly = p.y;
+    g.input.keys.add(key);
+    for (let i = 0; i < 60 * 8; i++) {
+      p.invuln = 9999; p.hp = p.maxHp;
+      g.frame(1 / 60);
+      if (g.state !== 'run') break;
+      const moved = Math.hypot(p.x - lx, p.y - ly);
+      // Near the arena edge "stuck" is legitimate; only count mid-field.
+      const midField = p.x > 60 && p.x < g.arena.w - 60 && p.y > 60 && p.y < g.arena.h - 60;
+      if (moved < 0.2 && midField) still++; else still = 0;
+      if (still > 45) { wedged = true; break; }
+      lx = p.x; ly = p.y;
+    }
+    g.input.keys.delete(key);
+    if (wedged || g.state !== 'run') break;
+  }
+  check(!wedged, 'the no-maze law holds: piper never wedges in Riverside');
+  if (g.state === 'run') {
+    const maxD = Math.max(...g.mob.list.filter(c => !c.bagged && !c._gone).map(c => Math.hypot(c.x - p.x, c.y - p.y)));
+    check(maxD < 320, 'mob orbit survives the obstacle course', 'maxD=' + (maxD | 0));
+  } else check(true, 'mob orbit survives the obstacle course (run ended early)');
+}
+{
+  // Water: slows walkers, not swimmers; robots sizzle; fliers immune.
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  g.save.arenasUnlocked = 1; g.save.arena = 1;
+  g.input.assign(0, 'kb1');
+  g.startRun();
+  check(g.inWater(1290, 1000) && !g.inWater(100, 100), 'inWater sees the pond');
+  const bot = g.enemies.spawnNow(g, 'dustbot', 1290, 1000); // in the pond
+  bot.sneaky = false;
+  const hp0 = bot.hp;
+  for (let i = 0; i < 60 * 3 && !bot.dead; i++) { g.players[0].invuln = 99; g.frame(1 / 60); }
+  check(bot.dead || bot.hp < hp0 * 0.9, 'robots short-circuit in water', 'hp ' + hp0 + '->' + (bot.dead ? 'dead' : bot.hp.toFixed(1)));
+  const drone = g.enemies.spawnNow(g, 'tidydrone', 1290, 1000);
+  const dh0 = drone.hp;
+  for (let i = 0; i < 60 * 2 && !drone.dead; i++) { g.players[0].invuln = 99; drone.x = 1290; drone.y = 1000; g.frame(1 / 60); }
+  check(!drone.dead && drone.hp >= dh0 * 0.7, 'flying drones do not sizzle', 'hp=' + drone.hp.toFixed(1));
+  // Species affinity data.
+  check(SPECIES.duck.water === 1 && SPECIES.penguin.water === 1 && SPECIES.turtle.water === 1, 'ducks, penguins & turtles swim free');
+  check(SPECIES.frog.water === 0.85 && SPECIES.goat.water == null, 'frogs paddle, goats wade');
+}
+{
+  // Arena unlock: winning in the newest arena opens the next.
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  check(g.save.arenasUnlocked === 0, 'fresh saves know only the Backyard');
+  g.input.assign(0, 'kb1');
+  g.startRun();
+  g.waveNum = 12;
+  g.endRun(true);
+  check(g.save.arenasUnlocked === 1 && g.arenaJustUnlocked === 'RIVERSIDE PARK', 'victory unlocks Riverside Park');
+  // Selection clamps to unlocked on load.
+  g.save.arena = 5; g.persist();
+  g.chooseSlot(0);
+  check(g.save.arena <= g.save.arenasUnlocked, 'arena selection clamps to unlocked');
+  // Spawns never land in water or inside rocks.
+  g.save.arena = 1;
+  g.startRun();
+  let wetSpawns = 0;
+  for (let i = 0; i < 200; i++) {
+    const pos = g.spawnPos();
+    if (g.inWater(pos.x, pos.y)) wetSpawns++;
+  }
+  check(wetSpawns === 0, 'spawn points avoid the water', wetSpawns + '/200');
+}
+
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);
 process.exit(failed ? 1 : 0);

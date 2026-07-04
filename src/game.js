@@ -1,8 +1,8 @@
 // game.js — state machine + run loop. Waves, projectiles, cages, acorns,
 // crossroads picks, camera, meta unlocks.
 
-import { Pool, clamp, lerp, dist2, randRange, weightedPick, mulberry32 } from './pool.js';
-import { SPECIES, SPECIES_IDS, WAVES, CHOICES, UNLOCK_ORDER, MOB_CAP, CHARACTERS, DIFFICULTIES, TRAIN_COSTS, PIPER_UPGRADES, CHALLENGES, SPICES } from './data.js';
+import { Pool, clamp, lerp, dist2, randRange, weightedPick, mulberry32, slideObstacles } from './pool.js';
+import { SPECIES, SPECIES_IDS, WAVES, CHOICES, UNLOCK_ORDER, MOB_CAP, CHARACTERS, DIFFICULTIES, TRAIN_COSTS, PIPER_UPGRADES, CHALLENGES, SPICES, ARENAS } from './data.js';
 import { MobSystem } from './critters.js';
 import { EnemySystem } from './enemies.js';
 import { Piper } from './piper.js';
@@ -76,6 +76,8 @@ export class Game {
       bestEndless: 0,
       quests: {},        // one-time bounty flags
       spices: [false, false, false],
+      arena: 0,
+      arenasUnlocked: 0, // win in the newest arena to unlock the next
       diff: 0,           // selected difficulty
       diffUnlocked: 0,   // highest unlocked difficulty
     };
@@ -101,6 +103,8 @@ export class Game {
         bestEndless: s.bestEndless || 0,
         quests: s.quests || {},
         spices: s.spices || [false, false, false],
+        arena: Math.min(s.arena || 0, s.arenasUnlocked || 0),
+        arenasUnlocked: Math.min(s.arenasUnlocked || 0, ARENAS.length - 1),
         diff: Math.min(s.diff || 0, s.diffUnlocked || 0),
         diffUnlocked: s.diffUnlocked || 0,
       };
@@ -175,6 +179,9 @@ export class Game {
     this.endCause = null;
     this.rescueT = 10;
     this.acornHintDone = false;
+    this.arenaDef = ARENAS[Math.min(this.save.arena || 0, ARENAS.length - 1)];
+    this.obstacles = this.arenaDef.obstacles || [];
+    this.zones = this.arenaDef.zones || [];
     this.celebration = null;
     this.hitPause = 0;
     this.wallet = 0;        // spend at the crossroads market...
@@ -342,6 +349,12 @@ export class Game {
     this.save.biggestMob = Math.max(this.save.biggestMob, this.mob.biggest);
     this.save.acorns += this.wallet; // unspent wallet banks to the save file
     if (won) this.save.wins++;
+    this.arenaJustUnlocked = null;
+    if (won && this.save.arena === this.save.arenasUnlocked && this.save.arenasUnlocked < ARENAS.length - 1) {
+      this.save.arenasUnlocked++;
+      this.arenaJustUnlocked = ARENAS[this.save.arenasUnlocked].name;
+      this.audio.say('You unlocked a new place to march: ' + this.arenaJustUnlocked + '!', false);
+    }
     if (won && !this.save.endlessUnlocked) {
       this.save.endlessUnlocked = true;
       this.audio.say('You unlocked KEEP MARCHING! The endless parade!', true);
@@ -403,6 +416,16 @@ export class Game {
     this.persist();
     this.audio.sfx('recruit');
     this.audio.say(SPECIES[sp].name + ' joins your roster! See you next run!', true);
+  }
+
+  // Terrain: is this point in water? (zones are few; a scan is cheap)
+  inWater(x, y) {
+    for (const z of this.zones) {
+      if (z.type !== 'water') continue;
+      if (z.shape === 'circle') { if (dist2(x, y, z.x, z.y) < z.r * z.r) return true; }
+      else if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) return true;
+    }
+    return false;
   }
 
   // The Hades rule: every run ends pointing at the NEXT thing you want.
@@ -844,7 +867,8 @@ export class Game {
       const y = clamp(this.camera.y + Math.sin(a) * r, 60, this.arena.h - 60);
       let ok = true;
       for (const p of this.players) if (dist2(x, y, p.x, p.y) < 300 * 300) ok = false;
-      if (ok) return { x, y };
+      if (ok && this.inWater(x, y)) ok = false;
+      if (ok) { const s2 = slideObstacles(x, y, 20, this.obstacles); return { x: s2.x, y: s2.y }; }
     }
     return { x: randRange(80, this.arena.w - 80), y: 80 };
   }

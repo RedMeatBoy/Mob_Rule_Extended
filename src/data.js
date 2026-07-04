@@ -11,13 +11,13 @@ export const SPECIES = {
     name: 'Frog', tierNames: ['Frog', 'Bullfrog', 'FROG KING'],
     role: 'melee', dmg: 3, atkTime: 0.9, hp: 13, speed: 150, size: 11,
     body: '#6fbf73', belly: '#c8e8b0', accent: '#3a7a3e', shape: 'blob',
-    price: 8, sound: 'ribbit', unlock: 0,
+    price: 8, sound: 'ribbit', unlock: 0, water: 0.85,
   },
   duck: {
     name: 'Duck', tierNames: ['Duck', 'Mallard Elite', 'DUCK OF WAR'],
     role: 'ranged', dmg: 2, atkTime: 1.1, range: 150, hp: 10, speed: 140, size: 11,
     body: '#f0e6c8', belly: '#fff8e0', accent: '#ff9c42', shape: 'bird',
-    price: 8, sound: 'quack', unlock: 0,
+    price: 8, sound: 'quack', unlock: 0, water: 1,
   },
   goat: {
     name: 'Goat', tierNames: ['Goat', 'Battering Goat', 'THE UNFENCED'],
@@ -35,7 +35,7 @@ export const SPECIES = {
     name: 'Turtle', tierNames: ['Turtle', 'Battle Shell', 'FORTRESS'],
     role: 'tank', dmg: 2, atkTime: 1.2, hp: 38, speed: 90, size: 12,
     body: '#7bb87f', belly: '#c8b878', accent: '#4a7a4e', shape: 'shell',
-    price: 10, sound: 'thunk', unlock: 0,
+    price: 10, sound: 'thunk', unlock: 0, water: 1,
   },
   bunny: {
     name: 'Bunny', tierNames: ['Bunny', 'Jackrabbit', 'THE MULTIPLIER'],
@@ -65,7 +65,7 @@ export const SPECIES = {
     name: 'Penguin', tierNames: ['Penguin', 'Torpedo', 'EMPEROR'],
     role: 'pierce', dmg: 4, atkTime: 2.2, hp: 16, speed: 130, size: 11,
     body: '#2e3440', belly: '#f0f4f8', accent: '#ff9c42', shape: 'bird',
-    price: 14, sound: 'honk', unlock: 2500,
+    price: 14, sound: 'honk', unlock: 2500, water: 1,
   },
   butterfly: {
     name: 'Butterfly', tierNames: ['Butterfly', 'Monarch', 'THE APOTHECARY'],
@@ -297,3 +297,39 @@ export const SPICES = [
   { id: 1, name: 'BRUTES', emoji: '🌶️', desc: 'robots +25% HP' },
   { id: 2, name: 'FAMINE', emoji: '🌶️', desc: 'no apples drop' },
 ];
+
+// ---- ARENAS (M1: two; the no-maze law applies to every layout). ----
+// zones: water slows non-swimmers ×0.55 (SPECIES.water overrides, fliers
+// immune) and SHORT-CIRCUITS robots (%maxHp/s). obstacles: slide-along.
+export const ARENAS = [
+  {
+    id: 'backyard', name: 'THE BACKYARD', emoji: '🌿',
+    blurb: 'where it all began — open grass, no surprises',
+    ground: '#79b562', ground2: '#5a8a4a',
+    obstacles: [], zones: [],
+  },
+  {
+    id: 'riverside', name: 'RIVERSIDE PARK', emoji: '🏞️',
+    blurb: 'robots short-circuit in water — ducks, turtles & penguins swim free!',
+    ground: '#6fb567', ground2: '#4f8a52', waterColor: '#5aa9dd',
+    obstacles: [
+      { kind: 'rock', x: 420, y: 820, r: 42 },
+      { kind: 'rock', x: 520, y: 900, r: 30 },
+      { kind: 'rock', x: 1350, y: 350, r: 46 },
+      { kind: 'rock', x: 1180, y: 240, r: 32 },
+      { kind: 'rock', x: 300, y: 1100, r: 36 },
+      { kind: 'wall', x: 1080, y: 700, w: 200, h: 26 },
+      { kind: 'wall', x: 240, y: 480, w: 26, h: 180 },
+    ],
+    zones: [
+      // A stream down the middle with two bridge gaps, plus two ponds.
+      { type: 'water', shape: 'rect', x: 800, y: 0, w: 120, h: 340 },
+      { type: 'water', shape: 'rect', x: 800, y: 520, w: 120, h: 260 },
+      { type: 'water', shape: 'rect', x: 800, y: 960, w: 120, h: 340 },
+      { type: 'water', shape: 'circle', x: 1290, y: 1000, r: 165 },
+      { type: 'water', shape: 'circle', x: 360, y: 280, r: 115 },
+    ],
+    bridges: [ { x: 790, y: 340, w: 140, h: 180 }, { x: 790, y: 780, w: 140, h: 180 } ],
+  },
+];
+export const ROBOT_SIZZLE = 0.08; // fraction of maxHp per second in water

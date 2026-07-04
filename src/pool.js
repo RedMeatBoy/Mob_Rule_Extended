@@ -77,3 +77,27 @@ export class Grid {
     }
   }
 }
+
+// Slide-along obstacle collision. Obstacles are convex and sparse by design
+// (the no-maze law) so a simple push-out never wedges an entity.
+export function slideObstacles(x, y, r, obstacles) {
+  for (const ob of obstacles) {
+    if (ob.kind === 'rock') {
+      const dx = x - ob.x, dy = y - ob.y;
+      const d = Math.hypot(dx, dy);
+      const min = r + ob.r;
+      if (d < min && d > 0.001) { x = ob.x + dx / d * min; y = ob.y + dy / d * min; }
+      else if (d <= 0.001) { x = ob.x + min; }
+    } else { // wall (axis-aligned rect)
+      const cx = Math.max(ob.x, Math.min(x, ob.x + ob.w));
+      const cy = Math.max(ob.y, Math.min(y, ob.y + ob.h));
+      const dx = x - cx, dy = y - cy;
+      const d = Math.hypot(dx, dy);
+      if (d < r) {
+        if (d > 0.001) { x = cx + dx / d * r; y = cy + dy / d * r; }
+        else y = ob.y - r; // dead center: shove upward
+      }
+    }
+  }
+  return { x, y };
+}

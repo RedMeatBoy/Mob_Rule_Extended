@@ -1,8 +1,8 @@
 // enemies.js — the Tidy Empire: bots that think animals are clutter.
 // Plus three bosses: MOWTRON 9000, THE SUCC-5000, and BUNNYTRON.
 
-import { Pool, Grid, clamp, lerp, dist2, randRange, makeSprite } from './pool.js';
-import { ENEMIES, enemyScale, TIDY_LINES } from './data.js';
+import { Pool, Grid, clamp, lerp, dist2, randRange, makeSprite, slideObstacles } from './pool.js';
+import { ENEMIES, enemyScale, TIDY_LINES, ROBOT_SIZZLE } from './data.js';
 
 export class EnemySystem {
   constructor(arenaW, arenaH) {
@@ -179,8 +179,18 @@ export class EnemySystem {
       e.x += e.kx * dt; e.y += e.ky * dt;
       e.kx *= 1 - Math.min(1, 8 * dt);
       e.ky *= 1 - Math.min(1, 8 * dt);
+      if (!e.def.flies && game.obstacles && game.obstacles.length) {
+        const slid = slideObstacles(e.x, e.y, e.size * 0.7, game.obstacles);
+        e.x = slid.x; e.y = slid.y;
+      }
       e.x = clamp(e.x, 26, game.arena.w - 26);
       e.y = clamp(e.y, 26, game.arena.h - 26);
+      // WATER + ROBOTS = SPARKS. The signature Riverside strategy.
+      if (!e.def.flies && e.kind !== 'cone' && game.inWater(e.x, e.y)) {
+        e.hp -= e.maxHp * (e.boss ? ROBOT_SIZZLE * 0.25 : ROBOT_SIZZLE) * dt;
+        if (Math.random() < dt * 6) game.fx.sparks(e.x, e.y - 4, 2);
+        if (e.hp <= 0 && !e.dead) this.die(game, e);
+      }
       if (Math.abs(e.vx) > 4) e.face = e.vx > 0 ? 1 : -1;
 
       // Contact damage: critters first, then pipers.
@@ -241,10 +251,12 @@ export class EnemySystem {
 
   behave(e, dt, game) {
     const slowMul = e.slowT > 0 ? 0.45 : 1;
+    const wet = !e.def.flies && game.inWater(e.x, e.y);
     const seek = (x, y, sp) => {
       const d = Math.hypot(x - e.x, y - e.y) || 1;
-      e.vx = (x - e.x) / d * sp * slowMul;
-      e.vy = (y - e.y) / d * sp * slowMul;
+      const m = slowMul * (wet ? 0.7 : 1);
+      e.vx = (x - e.x) / d * sp * m;
+      e.vy = (y - e.y) / d * sp * m;
       e.x += e.vx * dt; e.y += e.vy * dt;
     };
     const t = this.pickTarget(e, game);

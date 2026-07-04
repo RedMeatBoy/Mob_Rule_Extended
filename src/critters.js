@@ -4,6 +4,7 @@
 // less body between you and the Tidy Empire. Recall (Shift) brings hunters
 // home one at a time. Merges still rule everything.
 
+import { slideObstacles } from './pool.js';
 import { Pool, Grid, clamp, lerp, dist2, randRange, makeSprite } from './pool.js';
 import { SPECIES, TIER_MULT, MOB_CAP, MERGE_LINES } from './data.js';
 
@@ -301,7 +302,9 @@ export class MobSystem {
         : game.players.find(p => !p.dead);
       if (!piper) continue;
       const def = SPECIES[c.sp];
-      const spd = statFor(c.sp, c.tier, 'speed') * (1 + this.buffs.speed);
+      let spd = statFor(c.sp, c.tier, 'speed') * (1 + this.buffs.speed);
+      // Water: fliers soar over, swimmers glide, everyone else wades.
+      if (!def.flies && game.inWater(c.x, c.y)) spd *= (def.water != null ? def.water : 0.55);
       c.mods = piper.char || c.mods || null;
 
       if (c.duty === 'shield') {
@@ -371,6 +374,10 @@ export class MobSystem {
       });
       c.x += (c.vx + sx * 3.2) * dt;
       c.y += (c.vy + sy * 3.2) * dt;
+      if (!def.flies && game.obstacles && game.obstacles.length) {
+        const slid = slideObstacles(c.x, c.y, 8, game.obstacles);
+        c.x = slid.x; c.y = slid.y;
+      }
       c.x = clamp(c.x, 30, game.arena.w - 30);
       c.y = clamp(c.y, 30, game.arena.h - 30);
       if (Math.abs(c.vx) > 8) c.face = c.vx > 0 ? 1 : -1;

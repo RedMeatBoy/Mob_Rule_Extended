@@ -10,6 +10,21 @@ Space sends ONE out to hunt (hold = stream), Shift recalls one (hold = all).
 Piper has 100 HP + slow regen + apple drops (+25). Music: 5 songs 30s+ each,
 rotating every ~2 min at song boundaries.
 
+M1 WORLD TECH (Brad-approved 7-arena plan, ROADMAP.md): ARENAS in data.js
+(backyard + riverside; save.arena/arenasUnlocked, win-in-newest unlocks
+next, clamp on load); slideObstacles() in pool.js (rock=circle, wall=rect,
+slide-along push-out; THE NO-MAZE LAW: layouts stay convex + sparse so no
+pathfinding is ever needed — enforced by the section-S no-wedge test);
+zones (water circles/rects; game.inWater()); water rules: robots sizzle
+ROBOT_SIZZLE=8%maxHp/s (bosses 2%, fliers+cones immune), non-swimmers
+×0.55 speed, SPECIES.water overrides (duck/turtle/penguin 1, frog .85),
+fliers ignore; pipers ×0.6; spawnPos avoids water/rocks. Arena select =
+first cell on loadout screen (confirm cycles). Riverside: stream w/ 2
+bridge gaps + 2 ponds + 5 rocks + 2 fences. simulate args: RUNS char diff
+maxed ARENA. Next: M2 weather (rain/wind/lightning + Farm + Plateau),
+M3 Quarry/Dunes/Rooftop; Blender frog test approved (bpy procedural model
+→ toon render → atlas behind a flag → kid A/B before roster conversion).
+
 Round-EXT3 (Brad greenlight, full retention layer): celebrations (fx.firework/
 streamers; game.celebration {t,dur,big,fwT}; hitPause 0.35s; waveDone waits
 for celebration; BUNNYTRON story-finale = big + CONGRATULATIONS letter-slam

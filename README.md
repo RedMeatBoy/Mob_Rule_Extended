@@ -32,6 +32,11 @@ Everything from the Upgraded Edition, plus:
   acorns for… something. Could be a KING. Could be three bees.
 - **🎯 NEXT GOAL** — every run ends by pointing at the next thing your
   bank can (almost) afford. Losing is still progress.
+- **🗺️ ARENAS** — win in the newest arena to unlock the next. NEW:
+  **🏞️ RIVERSIDE PARK** — a stream with bridges, ponds, rocks and fences
+  to navigate… and the signature rule: **robots short-circuit in water**.
+  Ducks, turtles and penguins swim at full speed; frogs paddle happily;
+  everyone else wades. Pick your loadout to match the terrain!
 - **10 more Training Camp upgrades** — Acorn Magnet, Snack Lover, Field
   Medic, Loud Whistle, Wall Drill, Haggler, Crowbar, Lucky Clover (4
   crossroads cards!), Head Start, and the 800-acorn ROYAL INVITATION
@@ -138,7 +143,7 @@ rebuild the parade.
 ```bash
 git clone https://github.com/RedMeatBoy/Mob_Rule.git
 cd Mob_Rule && npx serve     # or python -m http.server
-node tests/engine.mjs        # 158 headless assertions
+node tests/engine.mjs        # 172 headless assertions
 node tests/simulate.mjs 24   # bot plays full runs; reports difficulty band
 node tests/perf.mjs          # 150-critter mob tick time
 ```

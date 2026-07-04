@@ -48,6 +48,8 @@ for (let r = 0; r < RUNS; r++) {
   if (r % 2 === 1 || MAXED) { const { SPECIES_IDS } = await load('src/data.js'); g.save.roster = [...SPECIES_IDS]; }
   if (MAXED) { const { SPECIES_IDS } = await load('src/data.js'); g.save.levels = Object.fromEntries(SPECIES_IDS.map(sp => [sp, 4])); }
   g.save.diff = DIFF; g.save.diffUnlocked = DIFF;
+  const ARENA = parseInt(process.argv[6], 10) || 0;
+  g.save.arenasUnlocked = ARENA; g.save.arena = ARENA;
   g.save.chars = [CHAR, CHAR];
   g.input.assign(0, 'kb1');
   g.startRun();

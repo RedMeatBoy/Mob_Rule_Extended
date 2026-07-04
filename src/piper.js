@@ -1,7 +1,7 @@
 // piper.js — the player. You walk, the mob follows YOUR path. You whistle,
 // the mob surges. That's the whole verb set, and it's enough.
 
-import { clamp, lerp } from './pool.js';
+import { clamp, lerp, slideObstacles } from './pool.js';
 import { CHARACTERS } from './data.js';
 
 export const PIPER_COLORS = ['#e05c5c', '#5aa9ff'];
@@ -37,9 +37,11 @@ export class Piper {
     this.whistleAnim = Math.max(0, this.whistleAnim - dt);
     if (this.dead || this.downed) { this.rallyT = 0; return; }
 
-    const spd = this.speed;
+    const spd = this.speed * (game.inWater(this.x, this.y) ? 0.6 : 1);
     this.x += inp.x * spd * dt;
     this.y += inp.y * spd * dt;
+    const slid = slideObstacles(this.x, this.y, 12, game.obstacles || []);
+    this.x = slid.x; this.y = slid.y;
     this.x = clamp(this.x, 34, game.arena.w - 34);
     this.y = clamp(this.y, 34, game.arena.h - 34);
     if (inp.x !== 0) this.face = inp.x > 0 ? 1 : -1;

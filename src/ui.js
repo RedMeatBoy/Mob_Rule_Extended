@@ -2,7 +2,7 @@
 // title/end/pause screens. Every screen works on keyboard and controller.
 
 import { clamp, lerp } from './pool.js';
-import { SPECIES, SPECIES_IDS, WAVES, UNLOCK_ORDER, MOB_CAP, TIPS, DEFEAT_LINES, VICTORY_LINES, CHARACTERS, DIFFICULTIES, PIPER_UPGRADES, TRAIN_COSTS, CHALLENGES, SPICES } from './data.js';
+import { SPECIES, SPECIES_IDS, WAVES, UNLOCK_ORDER, MOB_CAP, TIPS, DEFEAT_LINES, VICTORY_LINES, CHARACTERS, DIFFICULTIES, PIPER_UPGRADES, TRAIN_COSTS, CHALLENGES, SPICES, ARENAS } from './data.js';
 import { statFor, drawCrown } from './critters.js';
 import { PIPER_COLORS, Piper } from './piper.js';
 import { VIEW_W, VIEW_H } from './game.js';
@@ -259,21 +259,28 @@ export class UI {
       }
       case 'loadout': {
         const roster = g.unlockedList();
-        const cells = roster.length + SPICES.length + 1; // species + spices + GO
+        const cells = 1 + roster.length + SPICES.length + 1; // arena + species + spices + GO
         if (this.loIdx == null) this.loIdx = 0;
         if (inp.anyMenu('left')) { this.loIdx = (this.loIdx + cells - 1) % cells; g.audio.sfx('uiMove'); }
         if (inp.anyMenu('right')) { this.loIdx = (this.loIdx + 1) % cells; g.audio.sfx('uiMove'); }
         if (inp.anyPressed('confirm')) {
           g.audio.sfx('uiPick');
-          if (this.loIdx >= roster.length && this.loIdx < roster.length + SPICES.length) {
+          if (this.loIdx === 0) {
+            // Arena cell: confirm cycles through unlocked arenas.
+            const max = Math.min(g.save.arenasUnlocked || 0, ARENAS.length - 1);
+            g.save.arena = ((g.save.arena || 0) + 1) % (max + 1);
+            g.persist();
+            const a2 = ARENAS[g.save.arena];
+            g.audio.say(a2.name + '! ' + a2.blurb, true);
+          } else if (this.loIdx >= 1 + roster.length && this.loIdx < 1 + roster.length + SPICES.length) {
             // Spice toggle.
-            const si = this.loIdx - roster.length;
+            const si = this.loIdx - 1 - roster.length;
             g.save.spices[si] = !g.save.spices[si];
             g.persist();
             g.audio.say(g.save.spices[si]
               ? SPICES[si].name + ' spice on! More acorns, more trouble!'
               : SPICES[si].name + ' spice off!');
-          } else if (this.loIdx >= roster.length + SPICES.length) {
+          } else if (this.loIdx >= 1 + roster.length + SPICES.length) {
             // GO: next player picks, or march.
             if (this.loSlot === 0 && g.input.deviceFor(1)) {
               this.loSlot = 1; this.loIdx = 0;
@@ -283,7 +290,7 @@ export class UI {
               g.startRun();
             }
           } else {
-            const sp = roster[this.loIdx];
+            const sp = roster[this.loIdx - 1];
             const lo = g.save.loadouts[this.loSlot];
             const at = lo.indexOf(sp);
             if (at >= 0) lo.splice(at, 1);
@@ -399,12 +406,76 @@ export class UI {
     ctx.scale(cz, cz);
     ctx.translate(-cx, -cy);
 
-    // Meadow.
-    ctx.fillStyle = '#79b562';
+    // Meadow (arena-tinted).
+    const ar = g.arenaDef || ARENAS[0];
+    ctx.fillStyle = ar.ground || '#79b562';
     ctx.fillRect(0, 0, g.arena.w, g.arena.h);
     // Mowed-stripe texture (the Tidy Empire's dream, our battlefield).
     ctx.fillStyle = 'rgba(255,255,255,0.045)';
     for (let y = 0; y < g.arena.h; y += 120) ctx.fillRect(0, y, g.arena.w, 60);
+    // Water zones (under everything that walks).
+    if (g.zones && g.zones.length) {
+      for (const z of g.zones) {
+        if (z.type !== 'water') continue;
+        ctx.fillStyle = ar.waterColor || '#5aa9dd';
+        if (z.shape === 'circle') {
+          ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, 6.29); ctx.fill();
+          ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(z.x, z.y, z.r - 5, 0, 6.29); ctx.stroke();
+          // Ripples.
+          ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2;
+          const rp = (this.t * 20) % 40;
+          ctx.beginPath(); ctx.arc(z.x, z.y, Math.max(6, z.r - 40 - rp), 0, 6.29); ctx.stroke();
+        } else {
+          ctx.fillRect(z.x, z.y, z.w, z.h);
+          ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2;
+          for (let yy = z.y + 18; yy < z.y + z.h - 8; yy += 34) {
+            const sway = Math.sin(this.t * 2 + yy * 0.1) * 5;
+            ctx.beginPath(); ctx.moveTo(z.x + 12 + sway, yy); ctx.lineTo(z.x + z.w - 12 + sway, yy); ctx.stroke();
+          }
+        }
+      }
+      // Bridges (visual only — the water simply has gaps there).
+      for (const b of (ar.bridges || [])) {
+        ctx.fillStyle = '#a5844f';
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+        ctx.strokeStyle = '#7a5f38'; ctx.lineWidth = 2;
+        for (let yy = b.y + 8; yy < b.y + b.h; yy += 14) {
+          ctx.beginPath(); ctx.moveTo(b.x, yy); ctx.lineTo(b.x + b.w, yy); ctx.stroke();
+        }
+        ctx.fillStyle = '#7a5f38';
+        ctx.fillRect(b.x - 4, b.y, 5, b.h); ctx.fillRect(b.x + b.w - 1, b.y, 5, b.h);
+      }
+    }
+    // Obstacles: rocks and low walls (entities slide along these).
+    if (g.obstacles && g.obstacles.length) {
+      for (const ob of g.obstacles) {
+        if (ob.kind === 'rock') {
+          ctx.fillStyle = 'rgba(30,45,20,0.25)';
+          ctx.beginPath(); ctx.ellipse(ob.x + 4, ob.y + ob.r * 0.55, ob.r, ob.r * 0.4, 0, 0, 6.29); ctx.fill();
+          ctx.fillStyle = '#9aa294';
+          ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r, 0, 6.29); ctx.fill();
+          ctx.fillStyle = '#b8beb0';
+          ctx.beginPath(); ctx.arc(ob.x - ob.r * 0.3, ob.y - ob.r * 0.35, ob.r * 0.5, 0, 6.29); ctx.fill();
+          ctx.strokeStyle = '#6a7264'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r, 0, 6.29); ctx.stroke();
+        } else {
+          ctx.fillStyle = 'rgba(30,45,20,0.25)';
+          ctx.fillRect(ob.x + 4, ob.y + 6, ob.w, ob.h);
+          ctx.fillStyle = '#c9b28a';
+          ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+          ctx.strokeStyle = '#8a7a5a'; ctx.lineWidth = 3;
+          ctx.strokeRect(ob.x, ob.y, ob.w, ob.h);
+          const across = ob.w > ob.h;
+          for (let k = 1; k < (across ? ob.w : ob.h) / 34; k++) {
+            ctx.beginPath();
+            if (across) { ctx.moveTo(ob.x + k * 34, ob.y); ctx.lineTo(ob.x + k * 34, ob.y + ob.h); }
+            else { ctx.moveTo(ob.x, ob.y + k * 34); ctx.lineTo(ob.x + ob.w, ob.y + k * 34); }
+            ctx.stroke();
+          }
+        }
+      }
+    }
     // Decor.
     for (const d of g.decor) {
       if (d.kind === 0) {
@@ -1192,16 +1263,25 @@ export class UI {
     ctx.strokeText(ttl, VIEW_W / 2, 100);
     ctx.fillStyle = this.loSlot === 0 ? '#ffb3b3' : '#b3d1ff';
     ctx.fillText(ttl, VIEW_W / 2, 100);
-    ctx.font = 'bold 19px ' + FONT;
+    // Arena banner (cell 0): confirm cycles through unlocked arenas.
+    const arn = ARENAS[Math.min(g.save.arena || 0, ARENAS.length - 1)];
+    const arSel = this.loIdx === 0;
+    ctx.fillStyle = arSel ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.65)';
+    rr(ctx, VIEW_W / 2 - 330, 116, 660, 46, 12); ctx.fill();
+    if (arSel) { ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 4; rr(ctx, VIEW_W / 2 - 330, 116, 660, 46, 12); ctx.stroke(); }
+    ctx.font = 'bold 20px ' + FONT;
     ctx.fillStyle = '#3a5a2e';
-    ctx.fillText('choose up to 3 — your run will have LOTS more of them', VIEW_W / 2, 138);
-    const per = 6, cs = 150, gap = 24;
+    ctx.fillText(arn.emoji + ' ' + arn.name + '  (' + ((g.save.arenasUnlocked || 0) + 1) + '/' + ARENAS.length + ' unlocked' + (arSel ? ' — press to change' : '') + ')', VIEW_W / 2, 146);
+    ctx.font = 'bold 15px ' + FONT;
+    ctx.fillStyle = '#5a6a4a';
+    ctx.fillText(arn.blurb + '  ·  pick up to 3 favorite critters below', VIEW_W / 2, 180);
+    const per = 6, cs = 138, gap = 20;
     roster.forEach((sp, i) => {
       const row = Math.floor(i / per), col = i % per;
       const rowLen = Math.min(per, roster.length - row * per);
       const x = VIEW_W / 2 - (rowLen * (cs + gap) - gap) / 2 + col * (cs + gap);
-      const y = 180 + row * (cs + gap);
-      const sel = this.loIdx === i;
+      const y = 196 + row * (cs + gap);
+      const sel = this.loIdx === i + 1;
       const picked = lo.indexOf(sp);
       ctx.fillStyle = sel ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.6)';
       rr(ctx, x, y, cs, cs, 14); ctx.fill();
@@ -1220,12 +1300,12 @@ export class UI {
     });
     // Spice jar row.
     const rows = Math.ceil(roster.length / per);
-    const sy = 180 + rows * (cs + gap) + 4;
+    const sy = 196 + rows * (cs + gap) + 4;
     const spw = 240;
     SPICES.forEach((sp2, i) => {
       const x = VIEW_W / 2 - (SPICES.length * (spw + 16) - 16) / 2 + i * (spw + 16);
       const on = g.save.spices[i];
-      const sel = this.loIdx === roster.length + i;
+      const sel = this.loIdx === 1 + roster.length + i;
       ctx.fillStyle = on ? 'rgba(224,92,92,0.85)' : 'rgba(255,255,255,0.6)';
       rr(ctx, x, sy, spw, 44, 10); ctx.fill();
       if (sel) { ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 4; rr(ctx, x, sy, spw, 44, 10); ctx.stroke(); }
@@ -1237,7 +1317,7 @@ export class UI {
     });
     // GO button.
     const gy = sy + 56;
-    const goSel = this.loIdx >= roster.length + SPICES.length;
+    const goSel = this.loIdx >= 1 + roster.length + SPICES.length;
     ctx.fillStyle = goSel ? '#7ec850' : '#a8cc90';
     rr(ctx, VIEW_W / 2 - 160, gy, 320, 56, 14); ctx.fill();
     ctx.fillStyle = '#fff';
@@ -1591,6 +1671,11 @@ export class UI {
       ctx.font = 'bold 18px ' + FONT;
       ctx.fillStyle = g.nextGoal.ready ? '#b8f0a0' : '#ffe9a0';
       ctx.fillText((g.nextGoal.ready ? '✨ ' : '🎯 ') + g.nextGoal.text, VIEW_W / 2, gy + 3);
+    }
+    if (g.arenaJustUnlocked) {
+      ctx.font = 'bold 21px ' + FONT;
+      ctx.fillStyle = '#5adfff';
+      ctx.fillText('🗺️ NEW ARENA UNLOCKED: ' + g.arenaJustUnlocked + '!', VIEW_W / 2, won ? 234 : 300);
     }
     if (g.diffJustUnlocked) {
       ctx.font = 'bold 22px ' + FONT;
