@@ -1200,7 +1200,12 @@ export class UI {
 
     // Phases: 0-3 peaceful bouncing; 3-4.5 drones swoop; 4.5-6 flee; 6+ title.
     const flee = Math.min(1, Math.max(0, (t - 4.5) / 1.5));
-    const trio = [[VIEW_W / 2 - 90, VIEW_H - 110], [VIEW_W / 2, VIEW_H - 100], [VIEW_W / 2 + 90, VIEW_H - 110]];
+    // One spot per CHARACTER — computed, so adding a hero can never
+    // crash the intro again (ECHO's arrival broke the hardcoded trio).
+    const trio = CHARACTERS.map((c, i) => [
+      VIEW_W / 2 + (i - (CHARACTERS.length - 1) / 2) * 95,
+      VIEW_H - 110 + (i % 2) * 10,
+    ]);
     // Farm critters bounce, then run to the heroes.
     const spots = [[480, by + 20], [620, by + 60], [760, by - 10], [900, by + 40], [1060, by + 10], [360, by + 70], [990, by + 70], [540, by - 20]];
     const sps = ['frog', 'duck', 'goat', 'bunny', 'bee', 'turtle', 'bunny', 'duck'];
@@ -1208,7 +1213,7 @@ export class UI {
       const spr = g.mob.sprite(sps[i], 1);
       const panic = t > 3.4;
       const hop = Math.abs(Math.sin(t * (panic ? 14 : 5) + i * 1.7)) * (panic ? -12 : -7);
-      const home = trio[i % 3];
+      const home = trio[i % trio.length];
       const x = sx + (home[0] + (i - 4) * 16 - sx) * flee;
       const y = sy + (home[1] - 24 - sy) * flee;
       ctx.save();
@@ -1642,7 +1647,7 @@ export class UI {
       const row = Math.floor(i / per), col = i % per;
       const x = VIEW_W / 2 - (per * (cs + gap) - gap) / 2 + col * (cs + gap);
       const y = 252 + row * (cs + gap + 10);
-      const sel = this.trainIdx === nPup + i;
+      const sel = this.trainIdx === i; // tab-local index (the nPup era is over)
       const owned = g.unlocked(sp);
       const lv = g.levelOf(sp);
       const cost = g.trainCost(sp);
@@ -1677,7 +1682,7 @@ export class UI {
     });
     const rows = Math.ceil(SPECIES_IDS.length / per);
     const gy = 252 + rows * (cs + gap + 10) + 2;
-    const backSel = this.trainIdx >= nPup + SPECIES_IDS.length;
+    const backSel = this.trainIdx >= SPECIES_IDS.length;
     ctx.fillStyle = backSel ? '#7ec850' : '#a8cc90';
     rr(ctx, VIEW_W / 2 - 140, gy, 280, 48, 12); ctx.fill();
     ctx.fillStyle = '#fff';

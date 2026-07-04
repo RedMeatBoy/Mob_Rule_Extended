@@ -11,6 +11,13 @@ session does the work. Follow it mechanically. No step is optional.
    law; localStorage keys are namespaced per edition).
 2. **Syntax gate:** `node --check` on every touched file in `src/`.
 3. **Assertion gate:** `node tests/engine.mjs` — must be 100% green.
+3b. **Render gate:** `node tests/render-smoke.mjs .` — boots the game WITH
+   a stub canvas and walks EVERY screen (intro/saves/title/train/quests/
+   loadout/run×4 chars/all 7 arenas/boss/crossroads+shop/draft/pause).
+   The engine suite runs canvas-null and never executes render code —
+   the ECHO-intro crash shipped live because of exactly that gap. Any
+   UI/render change without this gate is an incident waiting for a
+   5-year-old to find it.
    New features ADD assertions (a feature without a test doesn't exist).
    Count-based assertions must measure mob WORTH (Σ 3^(tier-1)), never raw
    count — merges shrink counts.
