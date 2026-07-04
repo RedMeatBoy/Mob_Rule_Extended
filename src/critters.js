@@ -305,6 +305,10 @@ export class MobSystem {
       let spd = statFor(c.sp, c.tier, 'speed') * (1 + this.buffs.speed);
       // Water: fliers soar over, swimmers glide, everyone else wades.
       if (!def.flies && game.inWater(c.x, c.y)) spd *= (def.water != null ? def.water : 0.55);
+      // Mud: frogs and skunks are immune (they LIVE for this).
+      if (!def.flies && game.inMud && game.inMud(c.x, c.y)) spd *= (def.mud ? 1 : 0.6);
+      // Wind shoves the light fliers around.
+      if (def.flies && (game.windX || game.windY)) { c.x += game.windX * 20 * dt; c.y += game.windY * 20 * dt; }
       c.mods = piper.char || c.mods || null;
 
       if (c.duty === 'shield') {

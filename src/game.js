@@ -2,7 +2,7 @@
 // crossroads picks, camera, meta unlocks.
 
 import { Pool, clamp, lerp, dist2, randRange, weightedPick, mulberry32, slideObstacles } from './pool.js';
-import { SPECIES, SPECIES_IDS, WAVES, CHOICES, UNLOCK_ORDER, MOB_CAP, CHARACTERS, DIFFICULTIES, TRAIN_COSTS, PIPER_UPGRADES, CHALLENGES, SPICES, ARENAS } from './data.js';
+import { SPECIES, SPECIES_IDS, WAVES, CHOICES, UNLOCK_ORDER, MOB_CAP, CHARACTERS, DIFFICULTIES, TRAIN_COSTS, PIPER_UPGRADES, CHALLENGES, SPICES, ARENAS, WEATHER } from './data.js';
 import { MobSystem } from './critters.js';
 import { EnemySystem } from './enemies.js';
 import { Piper } from './piper.js';
@@ -202,6 +202,10 @@ export class Game {
     this.arenaDef = ARENAS[Math.min(this.save.arena || 0, ARENAS.length - 1)];
     this.obstacles = this.arenaDef.obstacles || [];
     this.zones = this.arenaDef.zones || [];
+    this.weather = { type: null, t: 0, warnT: 0, next: 14 + Math.random() * 8 };
+    this.mudGrow = 1;
+    this.windX = 0; this.windY = 0;
+    this.bolts = [];
     this.celebration = null;
     this.hitPause = 0;
     this.wallet = 0;        // spend at the crossroads market...
@@ -438,15 +442,18 @@ export class Game {
     this.audio.say(SPECIES[sp].name + ' joins your roster! See you next run!', true);
   }
 
-  // Terrain: is this point in water? (zones are few; a scan is cheap)
-  inWater(x, y) {
+  // Terrain: is this point inside a zone of this type? (zones are few)
+  inZone(x, y, type) {
     for (const z of this.zones) {
-      if (z.type !== 'water') continue;
-      if (z.shape === 'circle') { if (dist2(x, y, z.x, z.y) < z.r * z.r) return true; }
+      if (z.type !== type) continue;
+      const grow = type === 'mud' ? (this.mudGrow || 1) : 1;
+      if (z.shape === 'circle') { if (dist2(x, y, z.x, z.y) < (z.r * grow) * (z.r * grow)) return true; }
       else if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) return true;
     }
     return false;
   }
+  inWater(x, y) { return this.inZone(x, y, 'water'); }
+  inMud(x, y) { return this.inZone(x, y, 'mud'); }
 
   // The Hades rule: every run ends pointing at the NEXT thing you want.
   computeNextGoal() {
@@ -796,6 +803,80 @@ export class Game {
       else p.reviveP = Math.max(0, p.reviveP - dt * 0.5);
     }
 
+    // WEATHER: arena-flavored events with a spoken telegraph.
+    const wkinds = this.arenaDef && this.arenaDef.weather;
+    if (wkinds && wkinds.length && this.state === 'run') {
+      const wx = this.weather;
+      if (!wx.type) {
+        wx.next -= dt;
+        if (wx.next <= 0) {
+          wx.type = wkinds[Math.floor(Math.random() * wkinds.length)];
+          const cfg = WEATHER[wx.type];
+          wx.t = randRange(cfg.dur[0], cfg.dur[1]);
+          wx.warnT = 2.2;
+          if (wx.type === 'rain') { this.ui.banner('🌧️ RAIN!', '#8fd0ff'); this.audio.say('Rain is coming! Robots hate rain!'); }
+          if (wx.type === 'wind') {
+            const a = Math.random() * Math.PI * 2;
+            this.windX = Math.cos(a); this.windY = Math.sin(a);
+            this.ui.banner('💨 WIND!', '#c8e0b8'); this.audio.say('Whoosh! Hold onto your hats!');
+          }
+          if (wx.type === 'lightning') { this.ui.banner('⚡ THUNDERSTORM!', '#ffd166'); this.audio.say('Thunderstorm! Watch out for the sky circles!'); }
+        }
+      } else {
+        wx.warnT = Math.max(0, wx.warnT - dt);
+        wx.t -= dt;
+        if (wx.type === 'rain') this.mudGrow = Math.min(WEATHER.rain.mudGrow, this.mudGrow + dt * 0.1);
+        if (wx.type === 'lightning' && wx.warnT <= 0) {
+          wx.strikeT = (wx.strikeT || 0) - dt;
+          if (wx.strikeT <= 0) {
+            wx.strikeT = WEATHER.lightning.strikeEvery;
+            // Aim near the action: piper or a random enemy.
+            const P = this.enemies.pool;
+            const tgt = P.n && Math.random() < 0.6 ? P.get(Math.floor(Math.random() * P.n)) : this.players[0];
+            this.bolts.push({
+              x: clamp(tgt.x + randRange(-140, 140), 60, this.arena.w - 60),
+              y: clamp(tgt.y + randRange(-140, 140), 60, this.arena.h - 60),
+              t: WEATHER.lightning.warn, dur: WEATHER.lightning.warn, flash: 0,
+            });
+            this.audio.sfx('telegraph');
+          }
+        }
+        if (wx.t <= 0) {
+          wx.type = null;
+          wx.next = 16 + Math.random() * 12;
+          this.windX = 0; this.windY = 0;
+          // Mud dries back slowly after rain.
+        }
+      }
+      if ((!wx.type || wx.type !== 'rain') && this.mudGrow > 1) this.mudGrow = Math.max(1, this.mudGrow - dt * 0.03);
+    }
+    // Lightning bolts land on everyone under the circle — including robots.
+    for (let i = this.bolts.length - 1; i >= 0; i--) {
+      const b = this.bolts[i];
+      b.t -= dt;
+      if (b.t > 0) continue;
+      this.bolts.splice(i, 1);
+      const RAD = WEATHER.lightning.radius;
+      this.audio.sfx('stomp');
+      this.shake(0.4);
+      this.fx.ring(b.x, b.y, RAD, '#fff8b0', 0.4);
+      this.fx.sparks(b.x, b.y, 16);
+      this.ui.lightningFlash = 0.12;
+      const P2 = this.enemies.pool;
+      for (let k = 0; k < P2.n; k++) {
+        const e = P2.get(k);
+        if (!e.dead && dist2(b.x, b.y, e.x, e.y) < RAD * RAD) {
+          this.enemies.hurt(this, e, e.maxHp * (e.boss ? 0.08 : 0.4), null, {});
+        }
+      }
+      this.mob.grid.query(b.x, b.y, RAD, c => {
+        if (!c.bagged && dist2(b.x, b.y, c.x, c.y) < RAD * RAD) this.mob.hurt(this, c, 8, null);
+      });
+      for (const p of this.players) {
+        if (!p.dead && !p.downed && dist2(b.x, b.y, p.x, p.y) < RAD * RAD) p.hurt(this, 15, null);
+      }
+    }
+
     // Celebration fireworks (world keeps rendering underneath).
     if (this.celebration) {
       const c = this.celebration;
@@ -894,6 +975,11 @@ export class Game {
   }
 
   updateProjectiles(dt) {
+    if (this.windX || this.windY) {
+      const P = this.proj;
+      const push = WEATHER.wind.push * dt;
+      for (let i = 0; i < P.n; i++) { const pr = P.get(i); pr.vx += this.windX * push; pr.vy += this.windY * push; }
+    }
     const P = this.proj;
     for (let i = P.n - 1; i >= 0; i--) {
       const pr = P.get(i);

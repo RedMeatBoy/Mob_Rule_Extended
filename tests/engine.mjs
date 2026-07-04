@@ -562,9 +562,14 @@ console.log('N) Phase A: save slots + BAM & VIVI:');
   check(h && h.mods && h.mods.hunterDmg < 1, 'VIVI hunters hit softer (mod present)');
   // Lullaby wall: a melee shield critter's nibble slows the bot.
   const e = g.enemies.spawnNow(g, 'dustbot', p.x + 40, p.y);
-  e.hp = 1e9;
+  e.hp = 1e9; e.sneaky = false;
   let slowed = false;
-  for (let i = 0; i < 60 * 5 && !slowed; i++) { g.frame(1 / 60); slowed = e.slowT > 0.5; }
+  for (let i = 0; i < 60 * 12 && !slowed; i++) {
+    p.invuln = 99; p.hp = p.maxHp;
+    e.hp = 1e9; e.x = p.x + 40; e.y = p.y; // keep it pressed against the wall
+    g.frame(1 / 60);
+    slowed = e.slowT > 0.5;
+  }
   check(slowed, 'lullaby wall entrances robots that touch it');
 }
 
@@ -846,7 +851,7 @@ console.log('S) M1: terrain, collision, water, arenas:');
 {
   const { ARENAS } = await load('src/data.js');
   const { slideObstacles } = await load('src/pool.js');
-  check(ARENAS.length === 2 && ARENAS[1].id === 'riverside', 'two arenas: Backyard + Riverside Park');
+  check(ARENAS.length === 4 && ARENAS[1].id === 'riverside' && ARENAS[2].id === 'farm' && ARENAS[3].id === 'plateau', 'four arenas: Backyard, Riverside, Farm, Plateau');
   // Slide-along: a walker pushed into a rock pops out, never inside.
   const rock = [{ kind: 'rock', x: 100, y: 100, r: 40 }];
   const s1 = slideObstacles(110, 100, 10, rock);
@@ -937,6 +942,72 @@ console.log('S) M1: terrain, collision, water, arenas:');
     if (g.inWater(pos.x, pos.y)) wetSpawns++;
   }
   check(wetSpawns === 0, 'spawn points avoid the water', wetSpawns + '/200');
+}
+
+console.log('T) M2: weather + Muddy Farm + Storm Plateau:');
+{
+  // Mud slows walkers; frogs and skunks are immune; the barn has collision.
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  g.save.arenasUnlocked = 2; g.save.arena = 2; // MUDDY FARM
+  g.input.assign(0, 'kb1');
+  g.startRun();
+  check(g.inMud(750, 700) && !g.inMud(100, 1200), 'inMud sees the mud pits');
+  check(SPECIES.frog.mud === 1 && SPECIES.skunk.mud === 1, 'frogs & skunks love mud');
+  check(g.obstacles.some(o => o.barn), 'the red barn stands on the farm');
+  // Rain: force the event, watch mud grow and the type be rain.
+  g.weather.next = 0;
+  g.frame(1 / 60);
+  check(g.weather.type === 'rain', 'the farm rains', g.weather.type);
+  const grow0 = g.mudGrow;
+  for (let i = 0; i < 60 * 4; i++) { g.players[0].invuln = 99; g.frame(1 / 60); }
+  check(g.mudGrow > grow0, 'rain spreads the mud', g.mudGrow.toFixed(2));
+}
+{
+  // Storm Plateau: lightning strikes hurt robots under the circle.
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  g.save.arenasUnlocked = 3; g.save.arena = 3; // STORM PLATEAU
+  g.input.assign(0, 'kb1');
+  g.startRun();
+  const p = g.players[0];
+  p.invuln = 9999;
+  g.weather.next = 0;
+  for (let i = 0; i < 60 * 6 && !g.weather.type; i++) g.frame(1 / 60);
+  check(!!g.weather.type, 'the plateau storms', g.weather.type);
+  // Force a lightning bolt onto a bot.
+  const bot = g.enemies.spawnNow(g, 'dustbot', p.x + 400, p.y);
+  bot.sneaky = false;
+  g.bolts.length = 0;
+  g.bolts.push({ x: bot.x, y: bot.y, t: 0.01, dur: 1.2, flash: 0 });
+  const hp0 = bot.hp;
+  g.frame(1 / 60);
+  check(bot.dead || bot.hp < hp0, 'lightning zaps robots too', 'hp ' + hp0 + '->' + (bot.dead ? 'dead' : bot.hp));
+  // Wind pushes projectiles.
+  g.windX = 1; g.windY = 0;
+  const pr = g.proj.alloc();
+  pr.x = pr.px = 500; pr.y = pr.py = 500; pr.vx = 0; pr.vy = 0; pr.life = 2; pr.friendly = true; pr.dmg = 0; pr.target = null; pr.homing = false;
+  const vx0 = pr.vx;
+  g.updateProjectiles(1 / 60);
+  check(pr.vx > vx0, 'wind pushes projectiles');
+  // No-wedge law holds in the valley.
+  let wedged = false, still = 0, lx = p.x, ly = p.y;
+  g.windX = 0; g.windY = 0;
+  g.input.keys.add('KeyD');
+  for (let i = 0; i < 60 * 8; i++) {
+    p.invuln = 9999; p.hp = p.maxHp;
+    g.frame(1 / 60);
+    if (g.state !== 'run') break;
+    const moved = Math.hypot(p.x - lx, p.y - ly);
+    const midField = p.x > 60 && p.x < g.arena.w - 60 && p.y > 60 && p.y < g.arena.h - 60;
+    if (moved < 0.2 && midField) still++; else still = 0;
+    if (still > 45) { wedged = true; break; }
+    lx = p.x; ly = p.y;
+  }
+  g.input.keys.delete('KeyD');
+  check(!wedged, 'the no-maze law holds on the plateau');
 }
 
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);

@@ -11,7 +11,7 @@ export const SPECIES = {
     name: 'Frog', tierNames: ['Frog', 'Bullfrog', 'FROG KING'],
     role: 'melee', dmg: 3, atkTime: 0.9, hp: 13, speed: 150, size: 11,
     body: '#6fbf73', belly: '#c8e8b0', accent: '#3a7a3e', shape: 'blob',
-    price: 8, sound: 'ribbit', unlock: 0, water: 0.85,
+    price: 8, sound: 'ribbit', unlock: 0, water: 0.85, mud: 1,
   },
   duck: {
     name: 'Duck', tierNames: ['Duck', 'Mallard Elite', 'DUCK OF WAR'],
@@ -47,7 +47,7 @@ export const SPECIES = {
     name: 'Skunk', tierNames: ['Skunk', 'Code Green', 'THE INCIDENT'],
     role: 'aoe', dmg: 1, atkTime: 0.5, radius: 62, cooldown: 3, hp: 13, speed: 120, size: 12,
     body: '#2e2a35', belly: '#4a4455', accent: '#f0f0f0', shape: 'quad', tail: true,
-    price: 12, sound: 'pfft', unlock: 700,
+    price: 12, sound: 'pfft', unlock: 700, mud: 1,
   },
   owl: {
     name: 'Owl', tierNames: ['Owl', 'Night Watch', 'THE PROFESSOR'],
@@ -331,5 +331,48 @@ export const ARENAS = [
     ],
     bridges: [ { x: 790, y: 340, w: 140, h: 180 }, { x: 790, y: 780, w: 140, h: 180 } ],
   },
+  {
+    id: 'farm', name: 'MUDDY FARM', emoji: '🚜',
+    blurb: 'mud slows everyone but frogs & skunks — and RAIN makes it spread!',
+    ground: '#a5814f', ground2: '#8a6b3f', mudColor: '#6f5230',
+    weather: ['rain'],
+    obstacles: [
+      // The red barn (from the intro!) is real estate now.
+      { kind: 'wall', x: 180, y: 180, w: 280, h: 150, barn: true },
+      { kind: 'wall', x: 1250, y: 950, w: 220, h: 24 },
+      { kind: 'wall', x: 1250, y: 1100, w: 220, h: 24 },
+      { kind: 'rock', x: 900, y: 300, r: 38, hay: true },
+      { kind: 'rock', x: 1010, y: 350, r: 30, hay: true },
+      { kind: 'rock', x: 520, y: 1050, r: 40, hay: true },
+    ],
+    zones: [
+      { type: 'mud', shape: 'circle', x: 750, y: 700, r: 150 },
+      { type: 'mud', shape: 'circle', x: 1300, y: 400, r: 120 },
+      { type: 'mud', shape: 'circle', x: 400, y: 700, r: 100 },
+      { type: 'mud', shape: 'circle', x: 1050, y: 1050, r: 130 },
+    ],
+  },
+  {
+    id: 'plateau', name: 'STORM PLATEAU', emoji: '⛈️',
+    blurb: 'wind shoves everything and LIGHTNING falls — watch the sky circles!',
+    ground: '#7a8a72', ground2: '#5d6b58',
+    weather: ['wind', 'lightning'],
+    obstacles: [
+      // A wide valley channel (no-maze law: 340px wide, open both ends).
+      { kind: 'wall', x: 500, y: 480, w: 700, h: 30 },
+      { kind: 'wall', x: 500, y: 850, w: 700, h: 30 },
+      { kind: 'rock', x: 300, y: 250, r: 44 },
+      { kind: 'rock', x: 1400, y: 1050, r: 48 },
+      { kind: 'rock', x: 1420, y: 260, r: 36 },
+      { kind: 'rock', x: 260, y: 1080, r: 38 },
+    ],
+    zones: [],
+  },
 ];
 export const ROBOT_SIZZLE = 0.08; // fraction of maxHp per second in water
+// Weather tuning: one place.
+export const WEATHER = {
+  rain: { dur: [12, 18], botSlow: 0.86, mudGrow: 1.45 },
+  wind: { dur: [10, 15], push: 42 },
+  lightning: { dur: [12, 16], strikeEvery: 1.5, radius: 78, warn: 1.2 },
+};

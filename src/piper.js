@@ -37,7 +37,7 @@ export class Piper {
     this.whistleAnim = Math.max(0, this.whistleAnim - dt);
     if (this.dead || this.downed) { this.rallyT = 0; return; }
 
-    const spd = this.speed * (game.inWater(this.x, this.y) ? 0.6 : 1);
+    const spd = this.speed * (game.inWater(this.x, this.y) ? 0.6 : game.inMud && game.inMud(this.x, this.y) ? 0.7 : 1);
     this.x += inp.x * spd * dt;
     this.y += inp.y * spd * dt;
     const slid = slideObstacles(this.x, this.y, 12, game.obstacles || []);

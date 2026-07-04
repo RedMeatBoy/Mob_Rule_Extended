@@ -404,7 +404,7 @@ export class UI {
       case 'draft': this.renderDraft(ctx); break;
       case 'train': this.renderTrain(ctx); break;
       case 'quests': this.renderQuests(ctx); break;
-      case 'run': this.renderWorld(ctx); this.renderHUD(ctx); if (g.paused) this.renderPause(ctx); break;
+      case 'run': this.renderWorld(ctx); this.renderWeather(ctx); this.renderHUD(ctx); if (g.paused) this.renderPause(ctx); break;
       case 'crossroads': this.renderWorld(ctx); this.renderCrossroads(ctx); break;
       case 'gameover': this.renderWorld(ctx); this.renderEnd(ctx, false); break;
       case 'victory': this.renderWorld(ctx); this.renderEnd(ctx, true); break;
@@ -439,6 +439,16 @@ export class UI {
     // Water zones (under everything that walks).
     if (g.zones && g.zones.length) {
       for (const z of g.zones) {
+        if (z.type === 'mud') {
+          const gr = (g.mudGrow || 1);
+          ctx.fillStyle = ar.mudColor || '#6f5230';
+          ctx.beginPath(); ctx.arc(z.x, z.y, z.r * gr, 0, 6.29); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.10)';
+          ctx.beginPath(); ctx.ellipse(z.x - z.r * 0.25, z.y - z.r * 0.3, z.r * 0.4 * gr, z.r * 0.22 * gr, 0.4, 0, 6.29); ctx.fill();
+          ctx.strokeStyle = 'rgba(40,28,14,0.5)'; ctx.lineWidth = 4;
+          ctx.beginPath(); ctx.arc(z.x, z.y, z.r * gr, 0, 6.29); ctx.stroke();
+          continue;
+        }
         if (z.type !== 'water') continue;
         ctx.fillStyle = ar.waterColor || '#5aa9dd';
         if (z.shape === 'circle') {
@@ -476,6 +486,15 @@ export class UI {
         if (ob.kind === 'rock') {
           ctx.fillStyle = 'rgba(30,45,20,0.25)';
           ctx.beginPath(); ctx.ellipse(ob.x + 4, ob.y + ob.r * 0.55, ob.r, ob.r * 0.4, 0, 0, 6.29); ctx.fill();
+          if (ob.hay) {
+            ctx.fillStyle = '#d8b45a';
+            ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r, 0, 6.29); ctx.fill();
+            ctx.strokeStyle = '#a5814f'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r, 0, 6.29); ctx.stroke();
+            ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r * 0.62, 0, 6.29); ctx.stroke();
+            ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r * 0.3, 0, 6.29); ctx.stroke();
+            continue;
+          }
           ctx.fillStyle = '#9aa294';
           ctx.beginPath(); ctx.arc(ob.x, ob.y, ob.r, 0, 6.29); ctx.fill();
           ctx.fillStyle = '#b8beb0';
@@ -485,6 +504,24 @@ export class UI {
         } else {
           ctx.fillStyle = 'rgba(30,45,20,0.25)';
           ctx.fillRect(ob.x + 4, ob.y + 6, ob.w, ob.h);
+          if (ob.barn) {
+            // The red barn, now with collision.
+            ctx.fillStyle = '#b53a2e';
+            ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+            ctx.strokeStyle = '#7a2a22'; ctx.lineWidth = 4;
+            ctx.strokeRect(ob.x, ob.y, ob.w, ob.h);
+            ctx.fillStyle = '#8a2a22';
+            ctx.beginPath();
+            ctx.moveTo(ob.x - 16, ob.y);
+            ctx.lineTo(ob.x + ob.w / 2, ob.y - 52);
+            ctx.lineTo(ob.x + ob.w + 16, ob.y);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#6a4a2a';
+            ctx.fillRect(ob.x + ob.w / 2 - 30, ob.y + ob.h - 62, 60, 62);
+            ctx.strokeStyle = '#f0e6d0'; ctx.lineWidth = 3;
+            ctx.strokeRect(ob.x + ob.w / 2 - 30, ob.y + ob.h - 62, 60, 62);
+            continue;
+          }
           ctx.fillStyle = '#c9b28a';
           ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
           ctx.strokeStyle = '#8a7a5a'; ctx.lineWidth = 3;
@@ -624,6 +661,49 @@ export class UI {
 
     g.fx.render(ctx, g.alpha);
     ctx.restore();
+  }
+
+  renderWeather(ctx) {
+    const g = this.g;
+    const wx = g.weather;
+    // Screen-space weather overlays.
+    if (g.ui && g.ui.lightningFlash > 0) { /* handled on this */ }
+    if (this.lightningFlash > 0) {
+      this.lightningFlash -= 1 / 60;
+      ctx.fillStyle = 'rgba(255,255,240,' + Math.min(0.8, this.lightningFlash * 6) + ')';
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    }
+    if (!wx || !wx.type) return;
+    if (wx.type === 'rain') {
+      ctx.strokeStyle = 'rgba(160,210,255,0.5)';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 70; i++) {
+        const x = ((i * 97 + this.t * 520) % (VIEW_W + 80)) - 40;
+        const y = ((i * 61 + this.t * 900) % (VIEW_H + 60)) - 30;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 5, y + 16); ctx.stroke();
+      }
+    } else if (wx.type === 'wind') {
+      ctx.strokeStyle = 'rgba(230,245,220,0.4)';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 16; i++) {
+        const x = ((i * 173 + this.t * 640 * (g.windX || 1)) % (VIEW_W + 160)) - 80;
+        const y = (i * 97) % VIEW_H + Math.sin(this.t * 3 + i) * 20;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 30, y - 8, x + 60, y); ctx.stroke();
+      }
+    } else if (wx.type === 'lightning') {
+      ctx.fillStyle = 'rgba(40,40,70,0.18)';
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    }
+    // Weather chip under the wave label.
+    const label = wx.type === 'rain' ? '🌧️ RAIN — robots slowed, mud spreads'
+      : wx.type === 'wind' ? '💨 WIND — shots & fliers drift'
+      : '⚡ STORM — dodge the yellow circles!';
+    ctx.font = 'bold 14px ' + FONT;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#d8ecff';
+    ctx.strokeStyle = 'rgba(20,30,40,0.7)'; ctx.lineWidth = 4;
+    ctx.strokeText(label, VIEW_W / 2, 112);
+    ctx.fillText(label, VIEW_W / 2, 112);
   }
 
   renderHUD(ctx) {

@@ -252,9 +252,11 @@ export class EnemySystem {
   behave(e, dt, game) {
     const slowMul = e.slowT > 0 ? 0.45 : 1;
     const wet = !e.def.flies && game.inWater(e.x, e.y);
+    const muddy = !e.def.flies && game.inMud && game.inMud(e.x, e.y);
+    const rainy = game.weather && game.weather.type === 'rain' && !e.def.flies;
     const seek = (x, y, sp) => {
       const d = Math.hypot(x - e.x, y - e.y) || 1;
-      const m = slowMul * (wet ? 0.7 : 1);
+      const m = slowMul * (wet ? 0.7 : 1) * (muddy ? 0.75 : 1) * (rainy ? 0.86 : 1);
       e.vx = (x - e.x) / d * sp * m;
       e.vy = (y - e.y) / d * sp * m;
       e.x += e.vx * dt; e.y += e.vy * dt;
@@ -551,6 +553,20 @@ export class EnemySystem {
   }
 
   render(ctx, alpha, game) {
+    // Lightning warning circles (dodge!).
+    if (game.bolts && game.bolts.length) {
+      for (const b of game.bolts) {
+        const k = 1 - b.t / b.dur;
+        ctx.globalAlpha = 0.35 + k * 0.45;
+        ctx.strokeStyle = '#ffe95a';
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(b.x, b.y, 78 * (0.4 + 0.6 * k), 0, 6.29); ctx.stroke();
+        ctx.globalAlpha = 0.2 + k * 0.25;
+        ctx.fillStyle = '#fff8b0';
+        ctx.beginPath(); ctx.arc(b.x, b.y, 78 * k, 0, 6.29); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
     // Carrot bombs: landing-zone ring + carrot falling from the sky.
     for (const b of this.bombs) {
       const k = 1 - b.t / b.dur; // 0 = just launched, 1 = impact

@@ -32,11 +32,16 @@ Everything from the Upgraded Edition, plus:
   acorns for… something. Could be a KING. Could be three bees.
 - **🎯 NEXT GOAL** — every run ends by pointing at the next thing your
   bank can (almost) afford. Losing is still progress.
-- **🗺️ ARENAS** — win in the newest arena to unlock the next. NEW:
-  **🏞️ RIVERSIDE PARK** — a stream with bridges, ponds, rocks and fences
-  to navigate… and the signature rule: **robots short-circuit in water**.
-  Ducks, turtles and penguins swim at full speed; frogs paddle happily;
-  everyone else wades. Pick your loadout to match the terrain!
+- **🗺️ FOUR ARENAS** — win in the newest arena to unlock the next:
+  - **🏞️ RIVERSIDE PARK** — stream, bridges, ponds. **Robots
+    short-circuit in water**; ducks, turtles & penguins swim free.
+  - **🚜 MUDDY FARM** — mud pits slow everyone except frogs & skunks,
+    the red barn has collision now, and **rain** makes the mud spread.
+  - **⛈️ STORM PLATEAU** — a defensible valley, **wind** that shoves
+    shots and fliers, and **lightning**: dodge the yellow circles
+    (robots don't dodge — enjoy).
+- **🌦️ WEATHER** — arena-flavored events with spoken warnings; every
+  hazard hurts the Tidy Empire at least as much as it hurts you.
 - **10 more Training Camp upgrades** — Acorn Magnet, Snack Lover, Field
   Medic, Loud Whistle, Wall Drill, Haggler, Crowbar, Lucky Clover (4
   crossroads cards!), Head Start, and the 800-acorn ROYAL INVITATION

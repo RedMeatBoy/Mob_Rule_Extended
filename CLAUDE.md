@@ -10,6 +10,20 @@ Space sends ONE out to hunt (hold = stream), Shift recalls one (hold = all).
 Piper has 100 HP + slow regen + apple drops (+25). Music: 5 songs 30s+ each,
 rotating every ~2 min at song boundaries.
 
+M2 WEATHER (per roadmap): WEATHER in data.js (rain/wind/lightning tuning);
+game.weather state machine (event every 16-28s on arenas with a weather
+list, 2.2s spoken telegraph); rain: bots ×0.86 speed + mudGrow →1.45 (dries
+after); wind: windX/Y pushes projectiles (updateProjectiles) + flying
+critters/enemies drift; lightning: bolts[] telegraphed 1.2s (yellow circles,
+rendered w/ enemy layer), strike r78 = 40% maxHp to bots (8% boss), 8 to
+critters, 15 to piper + ui.lightningFlash. Zones generalized: inZone/inMud
+(mud ×0.6 walkers, frog/skunk mud:1 immune, piper ×0.7, bots ×0.75; mudGrow
+scales circle radius). Arenas 3+4: farm (mud pits, barn wall {barn:true},
+hay rocks {hay:true}, rain) + plateau (valley walls 340px apart, wind+
+lightning). Sims: farm median 10, plateau median 9, both IN BAND. RNG note:
+weather init consumes a random draw — tests needing determinism must pin
+positions (the vivi lullaby test does).
+
 M1 WORLD TECH (Brad-approved 7-arena plan, ROADMAP.md): ARENAS in data.js
 (backyard + riverside; save.arena/arenasUnlocked, win-in-newest unlocks
 next, clamp on load); slideObstacles() in pool.js (rock=circle, wall=rect,
