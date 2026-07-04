@@ -261,4 +261,11 @@ export const DIFFICULTIES = [
   { name: 'DEEP CLEAN',      emoji: '🧽', hp: 2.2,  dmg: 1.65, rate: 1.35, acorn: 1.75, color: '#e05c5c', blurb: 'bring your best mob' },
   { name: 'MAXIMUM TIDY',    emoji: '🌪️', hp: 2.8,  dmg: 2,    rate: 1.5,  acorn: 2,    color: '#c05aff', blurb: 'the Empire unleashed' },
 ];
-export const TRAIN_COSTS = [25, 50, 100, 200]; // per species level, +8% each
+export const TRAIN_COSTS = [25, 50, 100, 175, 275, 400, 550, 725, 925, 1150]; // 10 levels, +8% each
+// Permanent PIPER upgrades (Training Camp, paid from the bank).
+export const PIPER_UPGRADES = [
+  { id: 'hp', name: 'TOUGH PIPER', emoji: '❤️', desc: '+15 starting HP', max: 5, costs: [40, 80, 150, 250, 400] },
+  { id: 'speed', name: 'SPEEDY BOOTS', emoji: '👟', desc: '+5% walk speed', max: 5, costs: [40, 80, 150, 250, 400] },
+  { id: 'mob', name: 'BIGGER PARADE', emoji: '🐾', desc: '+1 starting critter', max: 5, costs: [60, 120, 220, 360, 550] },
+  { id: 'second', name: 'SECOND CHANCE', emoji: '🔄', desc: 'when all is lost: revive with a fresh mob of 10!', max: 3, costs: [300, 500, 1000] },
+];

@@ -2,7 +2,7 @@
 // crossroads picks, camera, meta unlocks.
 
 import { Pool, clamp, lerp, dist2, randRange, weightedPick, mulberry32 } from './pool.js';
-import { SPECIES, SPECIES_IDS, WAVES, CHOICES, UNLOCK_ORDER, MOB_CAP, CHARACTERS, DIFFICULTIES, TRAIN_COSTS } from './data.js';
+import { SPECIES, SPECIES_IDS, WAVES, CHOICES, UNLOCK_ORDER, MOB_CAP, CHARACTERS, DIFFICULTIES, TRAIN_COSTS, PIPER_UPGRADES } from './data.js';
 import { MobSystem } from './critters.js';
 import { EnemySystem } from './enemies.js';
 import { Piper } from './piper.js';
@@ -29,7 +29,7 @@ export class Game {
     this.enemies = new EnemySystem(this.arena.w, this.arena.h);
     this.ui = new UI(this);
 
-    this.state = 'saves'; // saves|title|run|crossroads|gameover|victory|(pause overlay)
+    this.state = 'intro'; // intro|saves|title|run|crossroads|gameover|victory|(pause overlay)
     this.paused = false;
     this.pauseReason = '';
     this.players = [];
@@ -66,9 +66,11 @@ export class Game {
     return {
       acorns: 0, bestWave: 0, wins: 0, biggestMob: 0,
       settings: { muted: false, shake: true }, little: [false, false], chars: [0, 0],
-      roster: ['frog', 'duck', 'goat', 'bee', 'turtle'],
+      roster: ['frog', 'duck', 'goat', 'bee', 'turtle', 'bunny'],
       loadouts: [[], []],
-      levels: {},        // permanent species training: sp -> 0..4
+      levels: {},        // permanent species training: sp -> 0..9
+      pups: { hp: 0, speed: 0, mob: 0 },  // permanent piper upgrades
+      secondChances: 0,  // consumable revives (max 3 held)
       diff: 0,           // selected difficulty
       diffUnlocked: 0,   // highest unlocked difficulty
     };
@@ -87,6 +89,8 @@ export class Game {
         roster: (s.roster && s.roster.length ? s.roster : d.roster),
         loadouts: s.loadouts || [[], []],
         levels: s.levels || {},
+        pups: { ...d.pups, ...(s.pups || {}) },
+        secondChances: s.secondChances || 0,
         diff: Math.min(s.diff || 0, s.diffUnlocked || 0),
         diffUnlocked: s.diffUnlocked || 0,
       };
@@ -115,6 +119,25 @@ export class Game {
     const lv = this.levelOf(sp);
     return lv >= TRAIN_COSTS.length ? null : TRAIN_COSTS[lv];
   }
+  pupLevel(id) { return id === 'second' ? this.save.secondChances : (this.save.pups[id] || 0); }
+  pupCost(id) {
+    const def = PIPER_UPGRADES.find(u => u.id === id);
+    const lv = this.pupLevel(id);
+    return lv >= def.max ? null : def.costs[lv];
+  }
+  buyPup(id) {
+    const cost = this.pupCost(id);
+    if (cost == null || this.save.acorns < cost) return false;
+    this.save.acorns -= cost;
+    if (id === 'second') this.save.secondChances++;
+    else this.save.pups[id] = (this.save.pups[id] || 0) + 1;
+    this.persist();
+    this.audio.sfx('recruit');
+    const def = PIPER_UPGRADES.find(u => u.id === id);
+    this.audio.say(def.name + '! ' + def.desc + '!', true);
+    return true;
+  }
+
   trainSpecies(sp) {
     const cost = this.trainCost(sp);
     if (cost == null || this.save.acorns < cost || !this.unlocked(sp)) return false;
@@ -152,10 +175,17 @@ export class Game {
       this.players.push(new Piper(1, this.arena.w / 2 + 30, this.arena.h / 2, this.save.little[1], CHARACTERS[this.save.chars[1] || 0]));
     }
     this.audio.lead = CHARACTERS[this.save.chars[0] || 0].lead;
+    // Permanent piper upgrades from the Training Camp.
+    for (const p of this.players) {
+      p.maxHp += 15 * (this.save.pups.hp || 0);
+      p.hp = p.maxHp;
+      p.speed *= 1 + 0.05 * (this.save.pups.speed || 0);
+    }
     // Starting mob comes from each player's LOADOUT (fallback: the sampler).
     const lo0 = ((this.save.loadouts || [[]])[0] || []).filter(sp => this.unlocked(sp));
     const src0 = lo0.length ? lo0 : ['frog', 'frog', 'duck', 'duck', 'goat'];
-    for (let i = 0; i < 5; i++) {
+    const extra = this.save.pups.mob || 0;
+    for (let i = 0; i < 5 + extra; i++) {
       this.mob.add(this, src0[i % src0.length], 1, p1.x + randRange(-30, 30), p1.y + randRange(20, 50), 0, true);
     }
     if (this.players[1]) {
@@ -241,6 +271,10 @@ export class Game {
   }
 
   endRun(won, cause) {
+    if (!won && this.state === 'run' && this.save.secondChances > 0) {
+      this.useSecondChance();
+      return;
+    }
     this.endCause = cause || null;
     this.audio.say(won
       ? 'Nature wins! Hooray! You saved all the critters!'
@@ -314,6 +348,45 @@ export class Game {
     this.audio.sfx('uiPick');
     this.persist();
     return true;
+  }
+
+  // The comeback: consume a Second Chance instead of losing.
+  useSecondChance() {
+    this.save.secondChances--;
+    this.persist();
+    this.lastStand = null;
+    const p0 = this.players[0];
+    for (const p of this.players) {
+      p.downed = false; p.dead = false;
+      p.hp = p.maxHp;
+      p.invuln = 3;
+      p.reviveP = 0;
+    }
+    // A fresh mob of 10 springs up around the piper.
+    const lo = ((this.save.loadouts || [[]])[0] || []).filter(sp => this.unlocked(sp));
+    const src = lo.length ? lo : ['frog', 'duck', 'goat', 'bunny'];
+    for (let i = 0; i < 10; i++) {
+      this.mob.add(this, src[i % src.length], 1, p0.x + randRange(-40, 40), p0.y + randRange(-40, 40), 0, i > 0);
+    }
+    // Shockwave clears the dogpile (bosses just get shoved).
+    const P = this.enemies.pool;
+    for (let i = 0; i < P.n; i++) {
+      const e = P.get(i);
+      const d2 = dist2(e.x, e.y, p0.x, p0.y);
+      if (d2 < 300 * 300) {
+        if (!e.boss) this.enemies.die(this, e);
+        else {
+          const dd = Math.sqrt(d2) || 1;
+          e.kx += (e.x - p0.x) / dd * 500; e.ky += (e.y - p0.y) / dd * 500;
+        }
+      }
+    }
+    this.shake(0.8);
+    this.fx.confetti(p0.x, p0.y - 20, 40);
+    this.fx.ring(p0.x, p0.y, 300, '#ffd166', 0.7);
+    this.audio.sfx('victory');
+    this.ui.banner('🔄 SECOND CHANCE!', '#ffd166');
+    this.audio.say('Second chance! The parade rises again! ' + this.save.secondChances + ' left!', true);
   }
 
   quitToTitle() {

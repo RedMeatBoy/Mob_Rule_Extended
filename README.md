@@ -4,10 +4,21 @@
 
 Everything from the Upgraded Edition, plus:
 
-- **🏋️ TRAINING CAMP** — spend your **banked** acorns on permanent species
-  levels: each level is +8% HP & damage *forever* (up to +32% at ★★★★).
-  The camp doubles as a sticker-book of your roster — every critter says
-  hello in its own voice.
+- **🏋️ TRAINING CAMP** — spend your **banked** acorns on permanent power:
+  - **Species levels**: every animal trains to **level 10** (+8% HP &
+    damage per level — +80% at max). The camp doubles as a sticker-book
+    of your roster; every critter says hello in its own voice.
+  - **❤️ TOUGH PIPER** — +15 starting HP per level (5 levels)
+  - **👟 SPEEDY BOOTS** — +5% walk speed per level (5 levels)
+  - **🐾 BIGGER PARADE** — +1 starting critter per level (5 levels)
+  - **🔄 SECOND CHANCE** — when your HP hits zero *or* your whole mob
+    falls, you rise again with full health and a fresh mob of 10 (plus a
+    shockwave that scraps every robot around you). Expensive: 300, then
+    500, then 1000 acorns. Hold up to three.
+- **🐰 Bunnies from day one** — bunnies start in every roster, so a
+  bunny-lover can put them in the loadout on the very first run.
+- **🎬 Animated intro** — the peaceful farm, the swooping Tidy Empire,
+  the critters running to their heroes… then MOB RULE slams in.
 - **🔓 Five difficulties** — beat wave 12 to unlock the next: 🌼 GARDEN
   PARTY → 🧹 SPRING CLEANING → 💦 POWER WASH → 🧽 DEEP CLEAN → 🌪️ MAXIMUM
   TIDY. Harder runs pay **more acorns**, feeding the training camp.

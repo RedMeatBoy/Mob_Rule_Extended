@@ -2,9 +2,9 @@
 // title/end/pause screens. Every screen works on keyboard and controller.
 
 import { clamp, lerp } from './pool.js';
-import { SPECIES, SPECIES_IDS, WAVES, UNLOCK_ORDER, MOB_CAP, TIPS, DEFEAT_LINES, VICTORY_LINES, CHARACTERS, DIFFICULTIES } from './data.js';
+import { SPECIES, SPECIES_IDS, WAVES, UNLOCK_ORDER, MOB_CAP, TIPS, DEFEAT_LINES, VICTORY_LINES, CHARACTERS, DIFFICULTIES, PIPER_UPGRADES, TRAIN_COSTS } from './data.js';
 import { statFor, drawCrown } from './critters.js';
-import { PIPER_COLORS } from './piper.js';
+import { PIPER_COLORS, Piper } from './piper.js';
 import { VIEW_W, VIEW_H } from './game.js';
 
 const FONT = '"Trebuchet MS", "Comic Sans MS", sans-serif';
@@ -81,6 +81,20 @@ export class UI {
     this.lastMob = mc;
 
     switch (g.state) {
+      case 'intro': {
+        this.introT = (this.introT || 0) + dt;
+        let press = inp.keys.size > 0;
+        for (const dev of inp.devices.values()) {
+          if (dev.connected && (dev.pressed('confirm') || dev.pressed('whistle') || dev.pressed('recall') || dev.pressed('pause'))) press = true;
+        }
+        if (press && this.introT > 0.6) {
+          g.audio.ensure();
+          g.audio.sfx('uiPick');
+          g.state = 'saves';
+          g.audio.say('Mob Rule! Pick a save file!', true);
+        }
+        break;
+      }
       case 'saves': {
         // Pick one of 3 save files. Delete needs TWO spoken confirmations.
         if (this.saveIdx == null) { this.saveIdx = 0; this.saveBtn = 0; this.saveMode = 'pick'; }
@@ -284,13 +298,16 @@ export class UI {
         break;
       case 'train': {
         const roster = SPECIES_IDS;
-        const cells = roster.length + 1; // + back
-        if (inp.anyMenu('left')) { this.trainIdx = (this.trainIdx + cells - 1) % cells; g.audio.sfx('uiMove'); if (this.trainIdx < roster.length && g.unlocked(roster[this.trainIdx])) g.audio.sfx(SPECIES[roster[this.trainIdx]].sound); }
-        if (inp.anyMenu('right')) { this.trainIdx = (this.trainIdx + 1) % cells; g.audio.sfx('uiMove'); if (this.trainIdx < roster.length && g.unlocked(roster[this.trainIdx])) g.audio.sfx(SPECIES[roster[this.trainIdx]].sound); }
+        const nPup = PIPER_UPGRADES.length;
+        const cells = nPup + roster.length + 1; // piper shelf + species + back
+        const spOf = i => (i >= nPup && i < nPup + roster.length) ? roster[i - nPup] : null;
+        if (inp.anyMenu('left')) { this.trainIdx = (this.trainIdx + cells - 1) % cells; g.audio.sfx('uiMove'); const sp = spOf(this.trainIdx); if (sp && g.unlocked(sp)) g.audio.sfx(SPECIES[sp].sound); }
+        if (inp.anyMenu('right')) { this.trainIdx = (this.trainIdx + 1) % cells; g.audio.sfx('uiMove'); const sp = spOf(this.trainIdx); if (sp && g.unlocked(sp)) g.audio.sfx(SPECIES[sp].sound); }
         if (inp.anyPressed('back')) { g.state = 'title'; g.audio.sfx('uiMove'); }
         else if (inp.anyPressed('confirm')) {
-          if (this.trainIdx >= roster.length) { g.state = 'title'; g.audio.sfx('uiPick'); }
-          else if (!g.trainSpecies(roster[this.trainIdx])) g.audio.sfx('uiMove');
+          if (this.trainIdx >= nPup + roster.length) { g.state = 'title'; g.audio.sfx('uiPick'); }
+          else if (this.trainIdx < nPup) { if (!g.buyPup(PIPER_UPGRADES[this.trainIdx].id)) g.audio.sfx('uiMove'); }
+          else if (!g.trainSpecies(spOf(this.trainIdx))) g.audio.sfx('uiMove');
         }
         break;
       }
@@ -320,6 +337,7 @@ export class UI {
   render(ctx) {
     const g = this.g;
     switch (g.state) {
+      case 'intro': this.renderIntro(ctx); break;
       case 'saves': this.renderSaves(ctx); break;
       case 'title': this.renderTitle(ctx); break;
       case 'loadout': this.renderLoadout(ctx); break;
@@ -819,6 +837,119 @@ export class UI {
     });
   }
 
+  renderIntro(ctx) {
+    const g = this.g;
+    const t = this.introT || 0;
+    // Sky + field.
+    const grd = ctx.createLinearGradient(0, 0, 0, VIEW_H);
+    grd.addColorStop(0, '#8fd0ff'); grd.addColorStop(0.55, '#cdeeff');
+    grd.addColorStop(0.55, '#79b562'); grd.addColorStop(1, '#5a8a4a');
+    ctx.fillStyle = grd; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    // Sun.
+    ctx.fillStyle = '#ffe9a0';
+    ctx.beginPath(); ctx.arc(VIEW_W - 160, 110, 46, 0, 6.29); ctx.fill();
+    // The red barn.
+    const bx = 210, by = VIEW_H * 0.55;
+    ctx.fillStyle = '#b53a2e';
+    ctx.fillRect(bx - 110, by - 120, 220, 120);
+    ctx.fillStyle = '#8a2a22';
+    ctx.beginPath(); ctx.moveTo(bx - 130, by - 120); ctx.lineTo(bx, by - 195); ctx.lineTo(bx + 130, by - 120); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#6a4a2a';
+    ctx.fillRect(bx - 32, by - 74, 64, 74);
+    ctx.strokeStyle = '#f0e6d0'; ctx.lineWidth = 4;
+    ctx.strokeRect(bx - 32, by - 74, 64, 74);
+    ctx.beginPath(); ctx.moveTo(bx - 32, by - 74); ctx.lineTo(bx + 32, by); ctx.moveTo(bx + 32, by - 74); ctx.lineTo(bx - 32, by); ctx.stroke();
+    // Fence.
+    ctx.fillStyle = '#c9b28a';
+    for (let fx2 = 60; fx2 < VIEW_W; fx2 += 90) { ctx.fillRect(fx2, by + 44, 8, 40); }
+    ctx.fillRect(0, by + 52, VIEW_W, 7);
+
+    // Phases: 0-3 peaceful bouncing; 3-4.5 drones swoop; 4.5-6 flee; 6+ title.
+    const flee = Math.min(1, Math.max(0, (t - 4.5) / 1.5));
+    const trio = [[VIEW_W / 2 - 90, VIEW_H - 110], [VIEW_W / 2, VIEW_H - 100], [VIEW_W / 2 + 90, VIEW_H - 110]];
+    // Farm critters bounce, then run to the heroes.
+    const spots = [[480, by + 20], [620, by + 60], [760, by - 10], [900, by + 40], [1060, by + 10], [360, by + 70], [990, by + 70], [540, by - 20]];
+    const sps = ['frog', 'duck', 'goat', 'bunny', 'bee', 'turtle', 'bunny', 'duck'];
+    spots.forEach(([sx, sy], i) => {
+      const spr = g.mob.sprite(sps[i], 1);
+      const panic = t > 3.4;
+      const hop = Math.abs(Math.sin(t * (panic ? 14 : 5) + i * 1.7)) * (panic ? -12 : -7);
+      const home = trio[i % 3];
+      const x = sx + (home[0] + (i - 4) * 16 - sx) * flee;
+      const y = sy + (home[1] - 24 - sy) * flee;
+      ctx.save();
+      ctx.translate(x, y + hop);
+      ctx.scale(1.7, 1.7);
+      ctx.drawImage(spr, -spr.width / 2, -spr.height / 2);
+      ctx.restore();
+    });
+    // The Tidy Empire swoops in from the sky.
+    if (t > 3) {
+      const drop = Math.min(1, (t - 3) / 1.2);
+      for (let i = 0; i < 4; i++) {
+        const dx = 260 + i * 240 + Math.sin(t * 3 + i) * 18;
+        const dy = -60 + (150 + i * 28) * drop + Math.sin(t * 5 + i * 2) * 6;
+        ctx.save();
+        ctx.translate(dx, dy);
+        ctx.fillStyle = '#8a8a96';
+        ctx.beginPath(); ctx.ellipse(0, 0, 22, 13, 0, 0, 6.29); ctx.fill();
+        ctx.strokeStyle = '#5a5a66'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = '#e05c5c';
+        ctx.beginPath(); ctx.arc(-6, -2, 3.5, 0, 6.29); ctx.fill();
+        ctx.beginPath(); ctx.arc(6, -2, 3.5, 0, 6.29); ctx.fill();
+        ctx.strokeStyle = '#b8bec8';
+        const rot = t * 30 + i;
+        ctx.beginPath(); ctx.moveTo(-16 * Math.cos(rot), -16 - 4 * Math.sin(rot)); ctx.lineTo(16 * Math.cos(rot), -16 + 4 * Math.sin(rot)); ctx.stroke();
+        ctx.restore();
+      }
+      if (t < 4.4) {
+        ctx.font = 'bold 26px ' + FONT;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#c53030';
+        ctx.fillText('⚠ the Tidy Empire! ⚠', VIEW_W / 2, 150 + Math.sin(t * 10) * 4);
+      }
+    }
+    // The heroes stand ready at the bottom.
+    if (!this.introPipers) this.introPipers = CHARACTERS.map((c, i) => new Piper(i % 2, 0, 0, false, c));
+    this.introPipers.forEach((p, i) => {
+      p.x = p.px = trio[i][0]; p.y = p.py = trio[i][1];
+      p.walk = t * 6;
+      ctx.save();
+      ctx.translate(0, 0);
+      p.render(ctx, 1, { time: t });
+      ctx.restore();
+    });
+    // Title slam.
+    if (t > 6) {
+      const k = Math.min(1, (t - 6) / 0.4);
+      const scale = 2.2 - 1.2 * k;
+      ctx.save();
+      ctx.translate(VIEW_W / 2, 260);
+      ctx.scale(scale, scale);
+      ctx.globalAlpha = k;
+      ctx.rotate(-0.02);
+      ctx.font = 'bold 110px ' + FONT;
+      ctx.textAlign = 'center';
+      ctx.strokeStyle = 'rgba(30,45,20,0.9)'; ctx.lineWidth = 12;
+      ctx.strokeText('MOB RULE', 0, 0);
+      ctx.fillStyle = '#ffd166';
+      ctx.fillText('MOB RULE', 0, 0);
+      ctx.restore();
+      ctx.font = 'bold 24px ' + FONT;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#e86a96';
+      ctx.fillText('✦ EXTENDED EDITION ✦', VIEW_W / 2, 316);
+    }
+    if (t > 6.6 && Math.sin(t * 4) > -0.3) {
+      ctx.font = 'bold 26px ' + FONT;
+      ctx.textAlign = 'center';
+      ctx.strokeStyle = 'rgba(30,45,20,0.7)'; ctx.lineWidth = 5;
+      ctx.strokeText('press any button!', VIEW_W / 2, VIEW_H - 40);
+      ctx.fillStyle = '#fff';
+      ctx.fillText('press any button!', VIEW_W / 2, VIEW_H - 40);
+    }
+  }
+
   renderSaves(ctx) {
     const g = this.g;
     const grd = ctx.createLinearGradient(0, 0, 0, VIEW_H);
@@ -1045,12 +1176,38 @@ export class UI {
     ctx.font = 'bold 22px ' + FONT;
     ctx.fillStyle = '#fff';
     ctx.fillText('🌰 bank: ' + g.save.acorns + ' — each level = +8% HP & damage, FOREVER', VIEW_W / 2, 126);
-    const per = 6, cs = 148, gap = 18;
+    // Piper shelf: the four permanent hero upgrades.
+    const nPup = PIPER_UPGRADES.length;
+    const pw = 218, ph = 96, pgap = 16;
+    const px0 = VIEW_W / 2 - (nPup * (pw + pgap) - pgap) / 2;
+    PIPER_UPGRADES.forEach((up, i) => {
+      const x = px0 + i * (pw + pgap), y = 140;
+      const sel = this.trainIdx === i;
+      const lv = g.pupLevel(up.id);
+      const cost = g.pupCost(up.id);
+      ctx.fillStyle = sel ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.6)';
+      rr(ctx, x, y, pw, ph, 12); ctx.fill();
+      if (sel) { ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 5; rr(ctx, x, y, pw, ph, 12); ctx.stroke(); }
+      ctx.font = 'bold 15px ' + FONT;
+      ctx.fillStyle = '#3a5a2e';
+      ctx.fillText(up.emoji + ' ' + up.name, x + pw / 2, y + 24);
+      ctx.font = '12px ' + FONT;
+      ctx.fillStyle = '#5a6a4a';
+      ctx.fillText(up.desc, x + pw / 2, y + 43);
+      ctx.font = 'bold 14px ' + FONT;
+      ctx.fillStyle = '#e8a000';
+      ctx.fillText('●'.repeat(lv) + '○'.repeat(up.max - lv), x + pw / 2, y + 63);
+      ctx.font = 'bold 14px ' + FONT;
+      if (cost == null) { ctx.fillStyle = '#7ec850'; ctx.fillText('MAXED!', x + pw / 2, y + 84); }
+      else { ctx.fillStyle = g.save.acorns >= cost ? '#8a5a1a' : '#c05a5a'; ctx.fillText('buy: ' + cost + '🌰', x + pw / 2, y + 84); }
+    });
+
+    const per = 6, cs = 138, gap = 14;
     SPECIES_IDS.forEach((sp, i) => {
       const row = Math.floor(i / per), col = i % per;
       const x = VIEW_W / 2 - (per * (cs + gap) - gap) / 2 + col * (cs + gap);
-      const y = 152 + row * (cs + gap + 14);
-      const sel = this.trainIdx === i;
+      const y = 252 + row * (cs + gap + 10);
+      const sel = this.trainIdx === nPup + i;
       const owned = g.unlocked(sp);
       const lv = g.levelOf(sp);
       const cost = g.trainCost(sp);
@@ -1060,28 +1217,32 @@ export class UI {
       if (sel) { ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 5; rr(ctx, x, y, cs, cs + 12, 12); ctx.stroke(); }
       if (owned) {
         const spr = g.mob.sprite(sp, 1);
-        ctx.drawImage(spr, x + cs / 2 - 28, y + 10, 56, 56);
-        ctx.font = 'bold 14px ' + FONT;
+        ctx.drawImage(spr, x + cs / 2 - 26, y + 8, 52, 52);
+        ctx.font = 'bold 13px ' + FONT;
         ctx.fillStyle = '#3a5a2e';
-        ctx.fillText(SPECIES[sp].name, x + cs / 2, y + 84);
-        ctx.font = 'bold 15px ' + FONT;
-        ctx.fillStyle = '#e8a000';
-        ctx.fillText('★'.repeat(lv) + '☆'.repeat(4 - lv), x + cs / 2, y + 106);
-        ctx.font = 'bold 15px ' + FONT;
-        if (cost == null) { ctx.fillStyle = '#7ec850'; ctx.fillText('MAXED!', x + cs / 2, y + 130); }
-        else { ctx.fillStyle = g.save.acorns >= cost ? '#8a5a1a' : '#c05a5a'; ctx.fillText('train: ' + cost + '🌰', x + cs / 2, y + 130); }
+        ctx.fillText(SPECIES[sp].name, x + cs / 2, y + 76);
+        // 10-level bar.
+        ctx.fillStyle = 'rgba(60,80,45,0.25)';
+        rr(ctx, x + 16, y + 88, cs - 32, 9, 4); ctx.fill();
+        if (lv > 0) { ctx.fillStyle = '#e8a000'; rr(ctx, x + 16, y + 88, (cs - 32) * lv / TRAIN_COSTS.length, 9, 4); ctx.fill(); }
+        ctx.font = 'bold 12px ' + FONT;
+        ctx.fillStyle = '#8a5a1a';
+        ctx.fillText('Lv ' + lv + '/' + TRAIN_COSTS.length, x + cs / 2, y + 112);
+        ctx.font = 'bold 13px ' + FONT;
+        if (cost == null) { ctx.fillStyle = '#7ec850'; ctx.fillText('MAXED!', x + cs / 2, y + 132); }
+        else { ctx.fillStyle = g.save.acorns >= cost ? '#8a5a1a' : '#c05a5a'; ctx.fillText('train: ' + cost + '🌰', x + cs / 2, y + 132); }
       } else {
-        ctx.font = 'bold 40px ' + FONT;
+        ctx.font = 'bold 36px ' + FONT;
         ctx.fillStyle = '#5a6a4a';
-        ctx.fillText('?', x + cs / 2, y + 66);
-        ctx.font = '12px ' + FONT;
-        ctx.fillText('not in roster yet', x + cs / 2, y + 106);
+        ctx.fillText('?', x + cs / 2, y + 60);
+        ctx.font = '11px ' + FONT;
+        ctx.fillText('not in roster yet', x + cs / 2, y + 96);
       }
       ctx.globalAlpha = 1;
     });
     const rows = Math.ceil(SPECIES_IDS.length / per);
-    const gy = 152 + rows * (cs + gap + 14) + 6;
-    const backSel = this.trainIdx >= SPECIES_IDS.length;
+    const gy = 252 + rows * (cs + gap + 10) + 2;
+    const backSel = this.trainIdx >= nPup + SPECIES_IDS.length;
     ctx.fillStyle = backSel ? '#7ec850' : '#a8cc90';
     rr(ctx, VIEW_W / 2 - 140, gy, 280, 48, 12); ctx.fill();
     ctx.fillStyle = '#fff';

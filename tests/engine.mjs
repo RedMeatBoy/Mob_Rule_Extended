@@ -513,14 +513,14 @@ console.log('N) Phase A: save slots + BAM & VIVI:');
   store.clear();
   store.set('mob_rule_v1', JSON.stringify({ acorns: 777, bestWave: 9 }));
   const g = new Game(null);
-  check(g.state === 'saves', 'game boots to the save-file screen');
+  check(g.state === 'intro', 'game boots to the animated intro');
   check(!store.get('mob_rule_ext_slot_0'), 'Upgraded Edition starts fresh (no legacy migration)');
   g.chooseSlot(0);
   check(g.state === 'title' && g.save.acorns === 0, 'choosing a slot loads it fresh', `acorns=${g.save.acorns}`);
   g.save.acorns = 777; g.persist();
   g.chooseSlot(1);
   check(g.save.acorns === 0, 'other slots start fresh');
-  check(Array.isArray(g.save.roster) && g.save.roster.length === 5, 'fresh roster has the 5 starter species');
+  check(Array.isArray(g.save.roster) && g.save.roster.length === 6, 'fresh roster has the 6 starter species (incl. bunny 🐰)');
   g.save.acorns = 55; g.persist();
   g.chooseSlot(0);
   check(g.save.acorns === 777, 'slots do not bleed into each other');
@@ -648,13 +648,13 @@ console.log('P) Extended Edition: training camp + difficulty ladder:');
   check(g.levelOf('frog') === 1 && g.save.acorns === 30 - TRAIN_COSTS[0], 'level + bank updated');
   check(!g.trainSpecies('frog'), 'cannot afford level 2 -> refused');
   check(!g.trainSpecies('moose'), 'cannot train species not in roster');
-  g.save.acorns = 9999;
-  for (let i = 0; i < 10; i++) g.trainSpecies('frog');
-  check(g.levelOf('frog') === 4 && g.trainCost('frog') == null, 'training caps at level 4 (MAXED)');
-  // Levels flow into a run: frog dmg/hp up 32%.
+  g.save.acorns = 99999;
+  for (let i = 0; i < 20; i++) g.trainSpecies('frog');
+  check(g.levelOf('frog') === 10 && g.trainCost('frog') == null, 'training caps at level 10 (MAXED)');
+  // Levels flow into a run: frog dmg/hp up 80%.
   g.input.assign(0, 'kb1');
   g.startRun();
-  check(Math.abs(g.mob.levelMul('frog') - 1.32) < 0.001, 'level 4 = +32% multiplier');
+  check(Math.abs(g.mob.levelMul('frog') - 1.8) < 0.001, 'level 10 = +80% multiplier');
   const frog = g.mob.list.find(c => c.sp === 'frog' && c.tier === 1);
   if (frog) check(g.mob.maxHp('frog', 1) > g.mob.maxHp('duck', 1) * 0.9, 'trained frogs are beefier');
   else check(true, 'trained frogs are beefier (no t1 frog after merges)');
@@ -677,6 +677,62 @@ console.log('P) Extended Edition: training camp + difficulty ladder:');
   g.startRun();
   g.acorns(10);
   check(g.wallet >= 12, 'harder runs pay more acorns', 'wallet=' + g.wallet);
+}
+
+console.log('Q) Extended round 2: piper upgrades, Second Chance, intro, bunnies:');
+{
+  const { PIPER_UPGRADES, TRAIN_COSTS } = await load('src/data.js');
+  check(TRAIN_COSTS.length === 10, 'species train to 10 levels');
+  check(PIPER_UPGRADES.length === 4, '4 permanent piper upgrades');
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  check(g.save.roster.includes('bunny'), 'bunnies are in the roster from day one 🐰');
+  // HP / speed / mob upgrades apply at run start.
+  g.save.acorns = 5000;
+  g.buyPup('hp'); g.buyPup('hp');
+  g.buyPup('speed');
+  g.buyPup('mob'); g.buyPup('mob'); g.buyPup('mob');
+  g.input.assign(0, 'kb1');
+  g.startRun();
+  const p = g.players[0];
+  check(p.maxHp === 130 && p.hp === 130, '+15 HP per TOUGH PIPER level', 'hp=' + p.maxHp);
+  check(Math.abs(p.speed - 175 * 1.05) < 0.01, 'SPEEDY BOOTS speeds up the piper', 'spd=' + p.speed);
+  const worthOf = m => m.list.reduce((s, c) => s + 3 ** (c.tier - 1), 0);
+  check(worthOf(g.mob) >= 8, 'BIGGER PARADE adds starting critters', 'worth=' + worthOf(g.mob));
+}
+{
+  // Second Chance: price ladder, cap, and the actual comeback.
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  g.save.acorns = 3000;
+  check(g.pupCost('second') === 300, 'first Second Chance costs 300');
+  g.buyPup('second');
+  check(g.pupCost('second') === 500, 'second costs 500');
+  g.buyPup('second');
+  check(g.pupCost('second') === 1000, 'third costs 1000');
+  g.buyPup('second');
+  check(g.save.secondChances === 3 && g.pupCost('second') == null, 'capped at 3 held');
+  g.input.assign(0, 'kb1');
+  g.startRun();
+  // Piper death -> comeback instead of game over.
+  const p = g.players[0];
+  p.invuln = 0;
+  p.hurt(g, 99999, null);
+  check(g.state === 'run' && !p.downed && p.hp === p.maxHp, 'Second Chance revives the piper mid-run', 'state=' + g.state);
+  check(g.save.secondChances === 2, 'one chance consumed');
+  check(g.mob.count() >= 10 || g.mob.list.length >= 4, 'a fresh mob springs up', 'mob=' + g.mob.count());
+  // Mob wipe -> comeback too.
+  g.cages.length = 0;
+  for (const c of [...g.mob.list]) g.mob.hurt(g, c, 999999, null);
+  g.frame(1 / 60);
+  check(g.state === 'run' && g.mob.count() > 0, 'mob wipe also triggers Second Chance', 'state=' + g.state + ' mob=' + g.mob.count());
+  check(g.save.secondChances === 1, 'second chance consumed');
+  // Out of chances -> the run really ends.
+  g.save.secondChances = 0;
+  for (const q of g.players) { q.invuln = 0; q.hurt(g, 99999, null); }
+  check(g.state === 'gameover', 'no chances left -> game over', g.state);
 }
 
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);
