@@ -157,7 +157,20 @@ export class UI {
           }
         }
         const join = inp.joinPress();
-        if (join) { inp.assign(1, join); g.audio.sfx('recruit'); }
+        if (join) {
+          inp.assign(1, join);
+          g.audio.sfx('recruit');
+          this.banner('🎮 PLAYER 2 JOINED!', '#5aa9ff');
+          g.audio.say('Player two joined the parade!', true);
+        }
+        // P2 can leave: press their BACK button on the title.
+        const d1x = inp.deviceFor(1);
+        if (d1x && d1x.pressed('back')) {
+          inp.unassign(1);
+          g.audio.sfx('uiMove');
+          this.banner('PLAYER 2 LEFT — solo parade', '#ffd166');
+          g.audio.say('Back to one player!', true);
+        }
         // Art style A/B: B swaps the frogs for the Blender kawaii build.
         const bHeld = inp.keys.has('KeyB');
         if (bHeld && !this.artKeyHeld) {
@@ -1606,8 +1619,15 @@ export class UI {
     ctx.font = `bold 14px ${FONT}`;
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     const d0 = g.input.deviceFor(0), d1 = g.input.deviceFor(1);
+    ctx.font = `bold 17px ${FONT}`;
+    ctx.fillStyle = d1 ? '#8fd0ff' : '#d8ecc8';
+    ctx.fillText(d1 ? '👥 PLAYERS: 2 (co-op)' : '👤 PLAYERS: 1 (solo)', VIEW_W / 2, 596 - 84);
+    ctx.font = `bold 14px ${FONT}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.fillText(d0 ? `P1: ${d0.label}` : 'P1: press a button to claim a device', VIEW_W / 2, 596 - 62);
-    ctx.fillText(d1 ? `P2: ${d1.label} — co-op ON` : 'P2: press a button on another device to join', VIEW_W / 2, 596 - 42);
+    ctx.fillText(d1
+      ? `P2: ${d1.label} — press its BACK button (${d1.glyphs ? d1.glyphs.back || 'B' : 'B'}) to leave`
+      : 'P2 join: press Enter (arrow keys) or A (second controller). Careful: Enter joins P2!', VIEW_W / 2, 596 - 42);
 
     // Unlock strip.
     let ux = VIEW_W / 2 - (SPECIES_IDS.length * 34) / 2;

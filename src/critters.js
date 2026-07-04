@@ -594,7 +594,7 @@ export class MobSystem {
       ctx.save();
       ctx.translate(x, y + hop);
       ctx.scale(c.face * sq * this.sizeMul, (2 - sq) * this.sizeMul);
-      const artSet = game.save && game.save.artTest && c.sp === 'frog' ? game.artFrames && game.artFrames.frog : null;
+      const artSet = game.save && game.save.artTest && game.artFrames ? game.artFrames[c.sp] : null;
       if (artSet && artSet.length === 12 && artSet[0].complete && artSet[0].naturalWidth) {
         // Blender kawaii frog: idle frames 0-5, hop frames 6-11.
         const moving = Math.abs(c.vx) + Math.abs(c.vy) > 20;

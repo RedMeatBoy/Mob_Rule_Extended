@@ -62,12 +62,16 @@ export class Game {
     this.buildDecor();
     // ART STYLE TEST: pre-rendered Blender frames (browser only; headless
     // tests skip this and the render falls back to procedural sprites).
-    this.artFrames = { frog: [] };
+    this.artFrames = {};
+    const ART_SPECIES = ['frog', 'bunny', 'duck']; // grows as the roster converts
     if (typeof Image !== 'undefined') {
-      for (let f = 1; f <= 12; f++) {
-        const img = new Image();
-        img.src = 'assets/frog/frog_' + String(f).padStart(2, '0') + '.png';
-        this.artFrames.frog.push(img);
+      for (const sp of ART_SPECIES) {
+        this.artFrames[sp] = [];
+        for (let f = 1; f <= 12; f++) {
+          const img = new Image();
+          img.src = 'assets/' + sp + '/' + sp + '_' + String(f).padStart(2, '0') + '.png';
+          this.artFrames[sp].push(img);
+        }
       }
     }
   }
