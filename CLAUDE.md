@@ -10,6 +10,20 @@ Space sends ONE out to hunt (hold = stream), Shift recalls one (hold = all).
 Piper has 100 HP + slow regen + apple drops (+25). Music: 5 songs 30s+ each,
 rotating every ~2 min at song boundaries.
 
+Round-EXT3 (Brad greenlight, full retention layer): celebrations (fx.firework/
+streamers; game.celebration {t,dur,big,fwT}; hitPause 0.35s; waveDone waits
+for celebration; BUNNYTRON story-finale = big + CONGRATULATIONS letter-slam
+in HUD); nextGoal (computeNextGoal at endRun — cheapest affordable else
+nearest want); ENDLESS: waveDef(n) generates past 12 (boss every 4th wave),
+save.mode/endlessUnlocked/bestEndless, endWave skips victory in mode 1;
+title menu now 11 rows (Mode row 4, QUESTS row 8); 10 new PIPER_UPGRADES
+(magnet/snack/medic/whistle/drill/haggle/crowbar/clover/headstart/royal;
+mob.shieldRegen/hunterBonus/nibbleBonus fields); Training Camp = 2 tabs
+(HERO/CRITTERS, up/down switches); CHALLENGES 8 quests paid at endRun
+(save.quests); SPICES 3 toggles on loadout screen (+25% acorns each: rate/
+hp/famine); FORTUNE teller 5th market offer (30🌰, 5 outcomes incl. 10%
+tier-3 KING). ROADMAP.md = Content ×3 plan to paid release.
+
 Round-3 (Brad feedback): mob health is a managed resource — HUD MOB bar,
 per-critter HP bars when hurt, critters heal 4%/s on shield duty, hunters
 auto-retreat to shield below 50% HP. Mob wipe triggers LAST STAND (12s to

@@ -19,6 +19,23 @@ Everything from the Upgraded Edition, plus:
   bunny-lover can put them in the loadout on the very first run.
 - **🎬 Animated intro** — the peaceful farm, the swooping Tidy Empire,
   the critters running to their heroes… then MOB RULE slams in.
+- **♾ KEEP MARCHING** — beat wave 12 once to unlock endless mode: waves
+  scale forever, remixed bosses return every 4th wave, best wave saved.
+- **🎆 Boss parties** — every boss death gets fireworks, streamers, and a
+  mob-wide cheer. Beat BUNNYTRON and earn the full rainbow
+  **CONGRATULATIONS!!!** send-off.
+- **⭐ QUESTS** — eight bounties ("win as VIVI", "bunnies-only to wave 8",
+  "120 critters at once"…) that pay acorns automatically at run end.
+- **🌶️ SPICE JAR** — optional pre-run heat: more spawns, tougher bots, no
+  apples — each spice pays +25% acorns. Crank it or keep it mild.
+- **🔮 FORTUNE TELLER** — a mystery stall at the crossroads market. 30
+  acorns for… something. Could be a KING. Could be three bees.
+- **🎯 NEXT GOAL** — every run ends by pointing at the next thing your
+  bank can (almost) afford. Losing is still progress.
+- **10 more Training Camp upgrades** — Acorn Magnet, Snack Lover, Field
+  Medic, Loud Whistle, Wall Drill, Haggler, Crowbar, Lucky Clover (4
+  crossroads cards!), Head Start, and the 800-acorn ROYAL INVITATION
+  (start every run with a tier-3 KING).
 - **🔓 Five difficulties** — beat wave 12 to unlock the next: 🌼 GARDEN
   PARTY → 🧹 SPRING CLEANING → 💦 POWER WASH → 🧽 DEEP CLEAN → 🌪️ MAXIMUM
   TIDY. Harder runs pay **more acorns**, feeding the training camp.
@@ -121,7 +138,7 @@ rebuild the parade.
 ```bash
 git clone https://github.com/RedMeatBoy/Mob_Rule.git
 cd Mob_Rule && npx serve     # or python -m http.server
-node tests/engine.mjs        # 89 headless assertions
+node tests/engine.mjs        # 158 headless assertions
 node tests/simulate.mjs 24   # bot plays full runs; reports difficulty band
 node tests/perf.mjs          # 150-critter mob tick time
 ```

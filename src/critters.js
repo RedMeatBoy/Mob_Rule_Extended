@@ -30,6 +30,9 @@ export class MobSystem {
     this.sizeMul = 1;  // acorn-fed growth: ×1.15 per 50 acorns this run
     this.growth = 0;
     this.levels = {};  // permanent species training from the save file
+    this.shieldRegen = 0.04;
+    this.hunterBonus = 0;
+    this.nibbleBonus = 0;
   }
 
   count() { return this.list.length; }
@@ -77,6 +80,7 @@ export class MobSystem {
   dmgOf(c) {
     let d = statFor(c.sp, c.tier, 'dmg') * (1 + this.buffs.dmg) * this.levelMul(c.sp);
     if (c.duty === 'attack' && c.mods) d *= (c.mods.hunterDmg || 1);
+    if (c.duty === 'attack') d *= 1 + this.hunterBonus;
     if (c.crowned) d *= 1.5;
     if (Math.random() < this.buffs.crit) d *= 2;
     return d;
@@ -87,6 +91,7 @@ export class MobSystem {
   atkCad(c, def) {
     let m = 1 + this.buffs.atkspd;
     if (c.mods) m *= c.duty === 'attack' ? (c.mods.hunterAspd || 1) : (c.mods.nibbleMul || 1);
+    if (c.duty === 'shield') m *= 1 + this.nibbleBonus;
     return def.atkTime / m;
   }
 
@@ -314,10 +319,10 @@ export class MobSystem {
         } else { c.vx *= 0.7; c.vy *= 0.7; }
         if (def.role === 'heal') this.healInPlace(c, def, game);
         else this.attackInPlace(c, def, game, statFor(c.sp, c.tier, 'size') * this.sizeMul);
-        // The shield is where you heal: 4% max HP per second on wall duty.
+        // The shield is where you heal (FIELD MEDIC trains this higher).
         const cmax = this.maxHp(c.sp, c.tier);
         if (c.hp < cmax) {
-          c.hp = Math.min(cmax, c.hp + cmax * 0.04 * dt);
+          c.hp = Math.min(cmax, c.hp + cmax * this.shieldRegen * dt);
           if (c.hp > cmax * 0.85) c.retreatFx = false;
         }
       } else {

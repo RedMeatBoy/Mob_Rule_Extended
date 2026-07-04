@@ -268,4 +268,32 @@ export const PIPER_UPGRADES = [
   { id: 'speed', name: 'SPEEDY BOOTS', emoji: '👟', desc: '+5% walk speed', max: 5, costs: [40, 80, 150, 250, 400] },
   { id: 'mob', name: 'BIGGER PARADE', emoji: '🐾', desc: '+1 starting critter', max: 5, costs: [60, 120, 220, 360, 550] },
   { id: 'second', name: 'SECOND CHANCE', emoji: '🔄', desc: 'when all is lost: revive with a fresh mob of 10!', max: 3, costs: [300, 500, 1000] },
+  { id: 'magnet', name: 'ACORN MAGNET', emoji: '🧲', desc: '+20% pickup reach', max: 5, costs: [30, 60, 110, 180, 280] },
+  { id: 'snack', name: 'SNACK LOVER', emoji: '🍎', desc: 'apples heal +10 more', max: 3, costs: [50, 100, 200] },
+  { id: 'medic', name: 'FIELD MEDIC', emoji: '💚', desc: 'shield heals +1%/s faster', max: 5, costs: [40, 80, 150, 250, 400] },
+  { id: 'whistle', name: 'LOUD WHISTLE', emoji: '📣', desc: 'hunters deal +4% damage', max: 5, costs: [50, 100, 175, 275, 425] },
+  { id: 'drill', name: 'WALL DRILL', emoji: '🛡️', desc: 'shield nibbles 5% faster', max: 5, costs: [50, 100, 175, 275, 425] },
+  { id: 'haggle', name: 'HAGGLER', emoji: '🏪', desc: 'market prices −8%', max: 3, costs: [75, 150, 300] },
+  { id: 'crowbar', name: 'CROWBAR', emoji: '🐣', desc: 'cages free +1 critter', max: 3, costs: [60, 140, 280] },
+  { id: 'clover', name: 'LUCKY CLOVER', emoji: '🍀', desc: 'crossroads offers 4 cards!', max: 1, costs: [250] },
+  { id: 'headstart', name: 'HEAD START', emoji: '⭐', desc: 'a starting critter begins at tier 2', max: 3, costs: [100, 200, 400] },
+  { id: 'royal', name: 'ROYAL INVITATION', emoji: '👑', desc: 'start every run with a tier-3 KING of your favorite species!', max: 1, costs: [800] },
+];
+
+// ---- Quests: one-time acorn bounties (checked at run end). ----
+export const CHALLENGES = [
+  { id: 'win_pip', name: 'Classic Hero', desc: 'win a run as PIP', bounty: 50 },
+  { id: 'win_bam', name: 'Drum Solo', desc: 'win a run as BAM', bounty: 75 },
+  { id: 'win_vivi', name: 'Standing Ovation', desc: 'win a run as VIVI', bounty: 75 },
+  { id: 'bunny_w8', name: 'Bunny Brigade', desc: 'reach wave 8 with a bunnies-only loadout', bounty: 100 },
+  { id: 'bank100', name: 'Fat Stacks', desc: 'finish a run with 100+ acorns unspent', bounty: 60 },
+  { id: 'mob120', name: 'MAXIMUM MOB', desc: 'have 120 critters at once', bounty: 80 },
+  { id: 'win_d2', name: 'Spring Cleaner', desc: 'win on SPRING CLEANING or harder', bounty: 150 },
+  { id: 'endless16', name: 'Forever March', desc: 'reach wave 16 in KEEP MARCHING', bounty: 200 },
+];
+// ---- Spice Jar: optional pre-run heat, each +25% acorns. ----
+export const SPICES = [
+  { id: 0, name: 'SWARM', emoji: '🌶️', desc: '+30% robot spawns' },
+  { id: 1, name: 'BRUTES', emoji: '🌶️', desc: 'robots +25% HP' },
+  { id: 2, name: 'FAMINE', emoji: '🌶️', desc: 'no apples drop' },
 ];

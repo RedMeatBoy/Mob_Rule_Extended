@@ -582,7 +582,7 @@ console.log('O) Upgraded Edition: wallet/bank, market, draft, loadout:');
   // Market: buy a critter and training.
   g.waveNum = 3;
   const offers = g.makeShop();
-  check(offers.length === 4 && offers[3].train, 'market offers 3 critters + training');
+  check(offers.length === 5 && offers[3].train && offers[4].fortune, 'market offers 3 critters + training + fortune');
   const worthOfMob = m => m.list.reduce((s, c) => s + (c && !c._gone ? 3 ** (c.tier - 1) : 0), 0);
   const before = worthOfMob(g.mob);
   const ok = g.buyOffer(offers[0], 0);
@@ -683,7 +683,7 @@ console.log('Q) Extended round 2: piper upgrades, Second Chance, intro, bunnies:
 {
   const { PIPER_UPGRADES, TRAIN_COSTS } = await load('src/data.js');
   check(TRAIN_COSTS.length === 10, 'species train to 10 levels');
-  check(PIPER_UPGRADES.length === 4, '4 permanent piper upgrades');
+  check(PIPER_UPGRADES.length === 14, '14 permanent piper upgrades');
   store.clear();
   const g = new Game(null);
   g.chooseSlot(0);
@@ -733,6 +733,113 @@ console.log('Q) Extended round 2: piper upgrades, Second Chance, intro, bunnies:
   g.save.secondChances = 0;
   for (const q of g.players) { q.invuln = 0; q.hurt(g, 99999, null); }
   check(g.state === 'gameover', 'no chances left -> game over', g.state);
+}
+
+console.log('R) Round 3: celebrations, endless, upgrade batch, quests, spice, fortune:');
+{
+  // Boss death throws a party; BUNNYTRON at wave 12 throws THE party.
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  g.input.assign(0, 'kb1');
+  g.startRun();
+  g.startWave(4);
+  for (let i = 0; i < 60 * 8 && !g.boss; i++) { g.players[0].invuln = 99; g.frame(1 / 60); }
+  g.enemies.hurt(g, g.boss, 999999, null, {});
+  check(!!g.celebration && !g.celebration.big, 'boss death starts a celebration');
+  check(!g.waveDone(), 'the wave waits for the fireworks');
+  for (let i = 0; i < 60 * 3; i++) g.frame(1 / 60);
+  check(!g.celebration, 'celebration ends on its own');
+  // Next Goal exists after any run ends.
+  g.endRun(false, null);
+  check(!!g.nextGoal && typeof g.nextGoal.text === 'string', 'end screen has a Next Goal', JSON.stringify(g.nextGoal));
+  check(g.save.endlessUnlocked === false, 'losing does not unlock endless');
+}
+{
+  // Endless: victory unlocks it; endless waves generate past 12.
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  g.input.assign(0, 'kb1');
+  g.startRun();
+  g.waveNum = 12;
+  g.endRun(true);
+  check(g.save.endlessUnlocked, 'first victory unlocks KEEP MARCHING');
+  for (let n = 13; n <= 25; n++) {
+    const def = g.waveDef(n);
+    if (!def || !def.mix || !def.rate) { check(false, 'waveDef generates forever', 'broke at ' + n); break; }
+    if (n === 25) check(true, 'waveDef generates forever');
+  }
+  check(!!g.waveDef(16).boss && !!g.waveDef(20).boss, 'remixed bosses every 4th endless wave', g.waveDef(16).boss + '/' + g.waveDef(20).boss);
+  // In endless mode, clearing wave 12 keeps marching.
+  g.save.mode = 1;
+  g.startRun();
+  g.waveNum = 12; g.waveT = 0;
+  g.enemies.clear();
+  g.celebration = null;
+  g.frame(1 / 60);
+  check(g.state === 'crossroads' || g.state === 'run', 'endless mode does not end at wave 12', g.state);
+  check(g.save.bestEndless >= 12, 'best endless wave recorded', 'best=' + g.save.bestEndless);
+}
+{
+  // The upgrade batch hooks.
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  g.save.acorns = 99999;
+  for (const id of ['magnet', 'snack', 'medic', 'whistle', 'drill', 'haggle', 'crowbar', 'clover', 'headstart']) g.buyPup(id);
+  g.buyPup('royal');
+  g.input.assign(0, 'kb1');
+  g.save.loadouts = [['turtle'], []];
+  g.startRun();
+  const p = g.players[0];
+  check(p.magnet > 95, 'ACORN MAGNET widens pickup', 'magnet=' + p.magnet);
+  check(Math.abs(g.mob.shieldRegen - 0.05) < 0.001, 'FIELD MEDIC raises shield regen');
+  check(g.mob.hunterBonus > 0 && g.mob.nibbleBonus > 0, 'LOUD WHISTLE + WALL DRILL live on the mob');
+  check(g.mob.list.some(c => c.tier >= 3), 'ROYAL INVITATION starts a KING', g.mob.list.map(c => c.sp + c.tier).join(','));
+  check(g.mob.list.some(c => c.tier === 2) || g.mob.list.filter(c => c.tier >= 2).length >= 1, 'HEAD START upgrades a starter');
+  g.ui.openCrossroads();
+  check(g.ui.cards.length === 4, 'LUCKY CLOVER deals 4 cards', 'cards=' + g.ui.cards.length);
+  g.waveNum = 1;
+  const offers = g.makeShop();
+  check(offers[0].price <= SPECIES[offers[0].sp].price, 'HAGGLER discounts the market');
+  check(offers.some(o => o.fortune), 'the Fortune Teller has a stall');
+  // Fortune: costs 30, always gives SOMETHING.
+  g.wallet = 100;
+  const worthOf = m => m.list.reduce((s, c) => s + 3 ** (c.tier - 1), 0);
+  const hpBefore = g.mob.mobHealth().frac;
+  const before = worthOf(g.mob);
+  const walletBefore = g.wallet;
+  const ok = g.buyOffer(offers.find(o => o.fortune), 0);
+  check(ok && g.wallet <= walletBefore - 15, 'fortune costs acorns (mostly)');
+  check(worthOf(g.mob) > before || g.wallet === walletBefore - 30 + 15 || g.mob.mobHealth().frac >= hpBefore, 'fortune always delivers something');
+}
+{
+  // Quests pay once; spices bite and pay.
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  g.input.assign(0, 'kb1');
+  g.startRun();
+  g.wallet = 150;
+  const bank = g.save.acorns;
+  g.endRun(false, null);
+  check(g.save.quests.bank100 && g.questsDone.some(q => q.id === 'bank100'), 'Fat Stacks quest pays out');
+  check(g.save.acorns >= bank + 150 + 60, 'bounty landed in the bank');
+  const bank2 = g.save.acorns;
+  g.startRun();
+  g.wallet = 150;
+  g.endRun(false, null);
+  check(!g.questsDone.some(q => q.id === 'bank100'), 'quests only pay once');
+  // Spices.
+  g.save.spices = [false, false, true]; // FAMINE
+  g.startRun();
+  const snacksBefore = g.snacks.length;
+  g.dropSnack(100, 100);
+  check(g.snacks.length === snacksBefore, 'FAMINE stops apples');
+  g.save.spices = [true, true, true];
+  g.acorns(10);
+  check(g.wallet >= 17, 'three spices pay +75% acorns', 'wallet=' + g.wallet);
 }
 
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);

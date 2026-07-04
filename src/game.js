@@ -2,7 +2,7 @@
 // crossroads picks, camera, meta unlocks.
 
 import { Pool, clamp, lerp, dist2, randRange, weightedPick, mulberry32 } from './pool.js';
-import { SPECIES, SPECIES_IDS, WAVES, CHOICES, UNLOCK_ORDER, MOB_CAP, CHARACTERS, DIFFICULTIES, TRAIN_COSTS, PIPER_UPGRADES } from './data.js';
+import { SPECIES, SPECIES_IDS, WAVES, CHOICES, UNLOCK_ORDER, MOB_CAP, CHARACTERS, DIFFICULTIES, TRAIN_COSTS, PIPER_UPGRADES, CHALLENGES, SPICES } from './data.js';
 import { MobSystem } from './critters.js';
 import { EnemySystem } from './enemies.js';
 import { Piper } from './piper.js';
@@ -71,6 +71,11 @@ export class Game {
       levels: {},        // permanent species training: sp -> 0..9
       pups: { hp: 0, speed: 0, mob: 0 },  // permanent piper upgrades
       secondChances: 0,  // consumable revives (max 3 held)
+      endlessUnlocked: false,
+      mode: 0,           // 0 story (12 waves) | 1 KEEP MARCHING (endless)
+      bestEndless: 0,
+      quests: {},        // one-time bounty flags
+      spices: [false, false, false],
       diff: 0,           // selected difficulty
       diffUnlocked: 0,   // highest unlocked difficulty
     };
@@ -91,6 +96,11 @@ export class Game {
         levels: s.levels || {},
         pups: { ...d.pups, ...(s.pups || {}) },
         secondChances: s.secondChances || 0,
+        endlessUnlocked: !!s.endlessUnlocked,
+        mode: s.endlessUnlocked ? (s.mode || 0) : 0,
+        bestEndless: s.bestEndless || 0,
+        quests: s.quests || {},
+        spices: s.spices || [false, false, false],
         diff: Math.min(s.diff || 0, s.diffUnlocked || 0),
         diffUnlocked: s.diffUnlocked || 0,
       };
@@ -165,6 +175,8 @@ export class Game {
     this.endCause = null;
     this.rescueT = 10;
     this.acornHintDone = false;
+    this.celebration = null;
+    this.hitPause = 0;
     this.wallet = 0;        // spend at the crossroads market...
     this.trainBought = 0;   // ...or bank it for permanent glory
     this.mob.levels = this.save.levels || {};
@@ -180,13 +192,22 @@ export class Game {
       p.maxHp += 15 * (this.save.pups.hp || 0);
       p.hp = p.maxHp;
       p.speed *= 1 + 0.05 * (this.save.pups.speed || 0);
+      p.magnet *= 1 + 0.2 * (this.save.pups.magnet || 0);
     }
+    this.mob.shieldRegen = 0.04 + 0.01 * (this.save.pups.medic || 0);
+    this.mob.hunterBonus = 0.04 * (this.save.pups.whistle || 0);
+    this.mob.nibbleBonus = 0.05 * (this.save.pups.drill || 0);
     // Starting mob comes from each player's LOADOUT (fallback: the sampler).
     const lo0 = ((this.save.loadouts || [[]])[0] || []).filter(sp => this.unlocked(sp));
     const src0 = lo0.length ? lo0 : ['frog', 'frog', 'duck', 'duck', 'goat'];
     const extra = this.save.pups.mob || 0;
+    const t2 = this.save.pups.headstart || 0;
     for (let i = 0; i < 5 + extra; i++) {
-      this.mob.add(this, src0[i % src0.length], 1, p1.x + randRange(-30, 30), p1.y + randRange(20, 50), 0, true);
+      this.mob.add(this, src0[i % src0.length], i < t2 ? 2 : 1, p1.x + randRange(-30, 30), p1.y + randRange(20, 50), 0, true);
+    }
+    if (this.save.pups.royal) {
+      this.mob.add(this, src0[0], 3, p1.x, p1.y + 60, 0, true);
+      this.audio.say('The ' + SPECIES[src0[0]].tierNames[2] + ' leads your parade!');
     }
     if (this.players[1]) {
       const lo1 = ((this.save.loadouts || [[], []])[1] || []).filter(sp => this.unlocked(sp));
@@ -201,16 +222,36 @@ export class Game {
     this.startWave(1);
   }
 
+  // Wave source: authored table for 1-12, generated forever after.
+  waveDef(n) {
+    if (n <= 12) return WAVES[n - 1];
+    const k = n - 13;
+    if (k % 4 === 3) {
+      // A remixed boss returns every 4th endless wave.
+      return {
+        duration: 55, rate: [0.5, 0.9],
+        mix: [['dustbot', 3], ['tidydrone', 2], ['mower', 2]],
+        boss: ['mowtron', 'succ', 'supervisor'][Math.floor(k / 4) % 3],
+        cages: 2, elite: true,
+      };
+    }
+    return {
+      duration: 42, rate: [1.4 + k * 0.04, 2.2 + k * 0.06],
+      mix: [['dustbot', 4], ['tidydrone', 3], ['mower', 2], ['broom', 2], ['bagbot', 2], ['conebot', 1]],
+      cages: 3, elite: true,
+    };
+  }
+
   startWave(n) {
     this.waveNum = n;
-    const def = WAVES[n - 1];
+    const def = this.waveDef(n);
     this.waveT = def.duration;
     this.spawnAcc = 0;
     this.bossSpawned = false;
     this.state = 'run';
     this.paused = false;
     this.audio.sfx('wavestart');
-    this.audio.intensity = n / 12;
+    this.audio.intensity = Math.min(1, n / 12);
     this.ui.banner(def.boss ? `WAVE ${n} — ${this.bossName(def.boss)}` : `WAVE ${n}`, def.boss ? '#e05c5c' : '#fff');
     this.audio.say(def.boss ? `Wave ${n}! Here comes ${this.bossName(def.boss)}! You can do it!` : `Wave ${n}! Here they come!`, true);
     // Scatter recruitment cages.
@@ -227,7 +268,8 @@ export class Game {
 
   waveDone() {
     if (this.waveT > 0) return false;
-    const def = WAVES[this.waveNum - 1];
+    if (this.celebration) return false; // let the fireworks finish first
+    const def = this.waveDef(this.waveNum);
     if (def.boss && this.boss) return false;
     return this.enemies.threats() === 0 && this.enemies.telegraphs.length === 0;
   }
@@ -241,7 +283,11 @@ export class Game {
     this.audio.sfx('waveclear');
     this.fx.confetti(this.camera.x, this.camera.y - 60, 20);
     // Sweep leftover pickups to the piper.
-    if (this.waveNum >= 12) { this.endRun(true); return; }
+    if (this.waveNum >= 12 && this.save.mode !== 1) { this.endRun(true); return; }
+    if (this.save.mode === 1 && this.waveNum >= (this.save.bestEndless || 0)) {
+      this.save.bestEndless = this.waveNum;
+      this.persist();
+    }
     // Revive any downed piper between waves; heal the whole mob.
     for (const p of this.players) if (p.downed) p.revive(this);
     for (const c of this.mob.list) c.hp = this.mob.maxHp(c.sp, c.tier);
@@ -253,8 +299,19 @@ export class Game {
     this.fx.confetti(e.x, e.y, 40);
     this.shake(0.7);
     this.audio.sfx('victory');
-    this.ui.banner('BOSS SCRAPPED!', '#ffd166');
-    this.audio.say('You did it! The boss is scrapped! Amazing!', true);
+    // PARTY TIME. The final boss in story mode gets the mega-celebration.
+    const finale = e.kind === 'supervisor' && this.waveNum >= 12 && this.save.mode !== 1;
+    this.celebration = { t: 0, dur: finale ? 4.6 : 1.8, big: finale, fwT: 0, hoorayed: false };
+    this.hitPause = 0.35;
+    if (finale) {
+      this.audio.say('CONGRATULATIONS! You beat BUNNYTRON! You saved the whole meadow! HOORAY!', true);
+    } else {
+      this.ui.banner('BOSS SCRAPPED!', '#ffd166');
+      this.audio.say('Hooray! The boss is scrapped! Amazing!', true);
+    }
+    // The mob cheers in its own voices.
+    const cheer = [...new Set(this.mob.list.filter(c => c && !c._gone).map(c => SPECIES[c.sp].sound))].slice(0, 5);
+    cheer.forEach((snd, i) => setTimeout(() => this.audio.sfx(snd), 150 + i * 130));
     // Bonus egg: 3 random higher-tier recruits.
     for (let i = 0; i < 3; i++) {
       const sp = this.randomSpecies();
@@ -285,6 +342,11 @@ export class Game {
     this.save.biggestMob = Math.max(this.save.biggestMob, this.mob.biggest);
     this.save.acorns += this.wallet; // unspent wallet banks to the save file
     if (won) this.save.wins++;
+    if (won && !this.save.endlessUnlocked) {
+      this.save.endlessUnlocked = true;
+      this.audio.say('You unlocked KEEP MARCHING! The endless parade!', true);
+    }
+    if (this.save.mode === 1 && this.waveNum > (this.save.bestEndless || 0)) this.save.bestEndless = this.waveNum;
     this.diffJustUnlocked = null;
     if (won && this.save.diff === this.save.diffUnlocked && this.save.diffUnlocked < DIFFICULTIES.length - 1) {
       this.save.diffUnlocked++;
@@ -304,6 +366,31 @@ export class Game {
       this.draftBonus = 20 + this.waveNum * 4;
       this.save.acorns += this.draftBonus;
     }
+    // Quests: pay out any newly finished bounties.
+    this.questsDone = [];
+    const ch0 = CHARACTERS[this.save.chars[0] || 0].id;
+    const lo0 = (this.save.loadouts || [[]])[0] || [];
+    const qchecks = {
+      win_pip: won && ch0 === 'pip',
+      win_bam: won && ch0 === 'bam',
+      win_vivi: won && ch0 === 'vivi',
+      bunny_w8: this.waveNum >= 8 && lo0.length > 0 && lo0.every(sp => sp === 'bunny'),
+      bank100: this.wallet >= 100,
+      mob120: this.mob.biggest >= 120,
+      win_d2: won && (this.save.diff || 0) >= 1,
+      endless16: this.save.mode === 1 && this.waveNum >= 16,
+    };
+    for (const q of CHALLENGES) {
+      if (!this.save.quests[q.id] && qchecks[q.id]) {
+        this.save.quests[q.id] = true;
+        this.save.acorns += q.bounty;
+        this.questsDone.push(q);
+      }
+    }
+    if (this.questsDone.length) {
+      this.audio.say('Quest complete! ' + this.questsDone.map(q => q.name).join(', and ') + '! Bonus acorns!', false);
+    }
+    this.nextGoal = this.computeNextGoal();
     this.persist();
     this.audio.stopMusic();
     this.audio.sfx(won ? 'victory' : 'defeat');
@@ -318,20 +405,76 @@ export class Game {
     this.audio.say(SPECIES[sp].name + ' joins your roster! See you next run!', true);
   }
 
+  // The Hades rule: every run ends pointing at the NEXT thing you want.
+  computeNextGoal() {
+    const bank = this.save.acorns;
+    const wants = [];
+    for (const up of PIPER_UPGRADES) {
+      const cost = this.pupCost(up.id);
+      if (cost != null) wants.push({ name: up.emoji + ' ' + up.name + ' Lv ' + (this.pupLevel(up.id) + 1), cost });
+    }
+    for (const sp of this.save.roster) {
+      const cost = this.trainCost(sp);
+      if (cost != null) wants.push({ name: SPECIES[sp].name + ' Lv ' + (this.levelOf(sp) + 1), cost });
+    }
+    if (!wants.length) return null;
+    wants.sort((a, b) => a.cost - b.cost);
+    const affordable = wants.filter(w => w.cost <= bank).pop();
+    if (affordable) return { text: 'You can afford ' + affordable.name + ' (' + affordable.cost + '🌰) — visit the TRAINING CAMP!', ready: true };
+    const next = wants[0];
+    return { text: 'Only ' + (next.cost - bank) + ' more acorns until ' + next.name + '!', ready: false };
+  }
+
   // ---------- crossroads market ----------
   makeShop() {
     const offers = [];
     for (let i = 0; i < 3; i++) {
       const sp = this.randomSpecies();
-      offers.push({ sp, price: Math.round(SPECIES[sp].price * (1 + 0.06 * (this.waveNum - 1))) });
+      const haggle = 1 - 0.08 * (this.save.pups.haggle || 0);
+      offers.push({ sp, price: Math.max(2, Math.round(SPECIES[sp].price * (1 + 0.06 * (this.waveNum - 1)) * haggle)) });
     }
     offers.push({ train: true, price: 15 + this.trainBought * 10 });
+    offers.push({ fortune: true, price: 30 });
     return offers;
   }
   buyOffer(o, slot) {
     if (o.sold || this.wallet < o.price) return false;
     this.wallet -= o.price;
     const p = this.players[slot] || this.players[0];
+    if (o.fortune) {
+      o.sold = true;
+      const roll = Math.random();
+      const spot = { x: p.x + randRange(-30, 30), y: p.y + randRange(20, 50) };
+      if (roll < 0.35) {
+        const sp = this.randomSpecies();
+        this.mob.add(this, sp, 2, spot.x, spot.y, p.slot);
+        this.fx.notice(p.x, p.y - 30, '🔮 A mighty ' + SPECIES[sp].tierNames[1] + '!', '#c792ea', 15);
+        this.audio.say('The fortune teller sees... a mighty ' + SPECIES[sp].tierNames[1] + '!');
+      } else if (roll < 0.55) {
+        const sp = Math.random() < 0.5 ? 'owl' : 'moose';
+        const give = this.unlocked(sp) ? sp : 'goat';
+        this.mob.add(this, give, 2, spot.x, spot.y, p.slot);
+        this.fx.notice(p.x, p.y - 30, '🔮 A powerful ally!', '#c792ea', 15);
+        this.audio.say('The fortune teller sees... a powerful ally!');
+      } else if (roll < 0.75) {
+        for (let i = 0; i < 3; i++) this.mob.add(this, 'bee', 1, spot.x + i * 10, spot.y, p.slot);
+        this.fx.notice(p.x, p.y - 30, '🔮 ...three bees. The universe is funny.', '#c792ea', 15);
+        this.audio.say('The fortune teller sees... three bees? Well. Bees are friends too!');
+      } else if (roll < 0.9) {
+        for (const c of this.mob.list) if (c && !c._gone) c.hp = this.mob.maxHp(c.sp, c.tier);
+        this.wallet += 15;
+        this.fx.notice(p.x, p.y - 30, '🔮 Full heal + 15 acorns back!', '#7ec850', 15);
+        this.audio.say('The fortune teller heals the whole mob! And look, spare change!');
+      } else {
+        const sp = ['frog', 'duck', 'bunny'][Math.floor(Math.random() * 3)];
+        this.mob.add(this, sp, 3, spot.x, spot.y, p.slot);
+        this.fx.notice(p.x, p.y - 30, '🔮 A KING JOINS THE PARADE!', '#ffd166', 16);
+        this.audio.say('INCREDIBLE! The fortune teller summons the ' + SPECIES[sp].tierNames[2] + '!');
+      }
+      this.audio.sfx('uiPick');
+      this.persist();
+      return true;
+    }
     if (o.train) {
       this.trainBought++;
       this.mob.buffs.dmg += 0.08;
@@ -471,6 +614,7 @@ export class Game {
     this.clouds.push({ x, y, r, dmg, life: 2.2 + tier * 0.4, tickT: 0 });
   }
   dropSnack(x, y) {
+    if (this.save.spices[2]) return; // FAMINE: no apples
     if (this.snacks.length > 12) return;
     this.snacks.push({ x, y, bob: Math.random() * 6 });
   }
@@ -488,7 +632,7 @@ export class Game {
           s.x += (p.x - s.x) / d * 500 * dt;
           s.y += (p.y - s.y) / d * 500 * dt;
         }
-        if (d2 < 22 * 22 && p.heal(this, 25)) {
+        if (d2 < 22 * 22 && p.heal(this, 25 + 10 * (this.save.pups.snack || 0))) {
           this.snacks.splice(i, 1);
           this.audio.say('Yummy apple!');
           break;
@@ -505,7 +649,8 @@ export class Game {
     a.val = val; a.bob = randRange(0, 6);
   }
   acorns(n, x, y) {
-    n = Math.max(1, Math.round(n * DIFFICULTIES[this.save.diff || 0].acorn));
+    const spice = 1 + 0.25 * this.save.spices.filter(Boolean).length;
+    n = Math.max(1, Math.round(n * DIFFICULTIES[this.save.diff || 0].acorn * spice));
     this.runStats.acorns += n;
     this.wallet += n;
     if (x != null) this.fx.num(x, y, `+${n} 🌰`, '#c9a05a', 11);
@@ -544,13 +689,13 @@ export class Game {
   tick(dt) {
     this.time += dt;
     this.runStats.time += dt;
-    const def = WAVES[this.waveNum - 1];
+    const def = this.waveDef(this.waveNum);
 
     // Spawning.
     if (this.waveT > 0) {
       this.waveT = Math.max(0, this.waveT - dt);
       const prog = 1 - this.waveT / def.duration;
-      const rate = lerp(def.rate[0], def.rate[1], prog) * (1 + 0.25 * (this.players.length - 1)) * (DIFFICULTIES[this.save.diff || 0].rate);
+      const rate = lerp(def.rate[0], def.rate[1], prog) * (1 + 0.25 * (this.players.length - 1)) * (DIFFICULTIES[this.save.diff || 0].rate) * (this.save.spices[0] ? 1.3 : 1);
       this.spawnAcc += rate * dt;
       while (this.spawnAcc >= 1 && this.enemies.count() < 130) {
         this.spawnAcc -= 1;
@@ -607,6 +752,26 @@ export class Game {
       if (near) { p.reviveP += dt / 3; if (p.reviveP >= 1) p.revive(this); }
       else p.reviveP = Math.max(0, p.reviveP - dt * 0.5);
     }
+
+    // Celebration fireworks (world keeps rendering underneath).
+    if (this.celebration) {
+      const c = this.celebration;
+      c.t += dt;
+      c.fwT -= dt;
+      if (c.fwT <= 0) {
+        c.fwT = c.big ? 0.22 : 0.4;
+        const n = c.big ? 2 : 1;
+        for (let i = 0; i < n; i++) {
+          this.fx.firework(
+            this.camera.x + randRange(-380, 380),
+            this.camera.y + randRange(-260, 120));
+        }
+        this.fx.streamers(this.arena.w, c.big ? 6 : 2);
+        this.audio.sfx('pop');
+      }
+      if (c.t >= c.dur) this.celebration = null;
+    }
+    if (this.hitPause > 0) { this.hitPause -= dt; return; }
 
     this.mob.update(dt, this);
     this.enemies.update(dt, this);
@@ -785,7 +950,7 @@ export class Game {
           this.audio.sfx('cage');
           this.fx.leaves(c.x, c.y, 6);
           const sp = this.randomSpecies();
-          const n = (c.rescue ? 4 : 3) + Math.floor(Math.random() * 2);
+          const n = (c.rescue ? 4 : 3) + Math.floor(Math.random() * 2) + (this.save.pups.crowbar || 0);
           for (let k = 0; k < n; k++) {
             this.mob.add(this, sp, 1, c.x + randRange(-14, 14), c.y + randRange(-14, 14), p.slot);
           }

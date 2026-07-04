@@ -53,6 +53,21 @@ export class FX {
   confetti(x, y, n) { this.burst(x, y, n || 26, 240, { type: 'confetti', colors: CONFETTI, size: 5, life: 1.3, grav: 160, drag: 1.2 }); }
   hearts(x, y, n) { this.burst(x, y, n, 60, { type: 'heart', colors: ['#ff8fb3', '#ffb7c5'], size: 5, life: 0.8, grav: -60 }); }
   notes(x, y, n) { this.burst(x, y, n, 60, { type: 'note', colors: ['#fff', '#aef2ff'], size: 8, life: 0.9, grav: -50, vrot: 2 }); }
+  firework(x, y) {
+    const hue = ['#ff5c9e', '#ffd166', '#7ec850', '#5aa9ff', '#c792ea', '#ff9a3c'][Math.floor(Math.random() * 6)];
+    this.burst(x, y, 26, 320, { type: 'spark', color: hue, size: 3.2, life: 0.9, grav: 90, drag: 1.4 });
+    this.burst(x, y, 10, 140, { type: 'confetti', colors: CONFETTI, size: 4, life: 1.1, grav: 140 });
+    this.ring(x, y, 90, hue, 0.5);
+  }
+  streamers(w, n) {
+    for (let i = 0; i < n; i++) {
+      this.spawn(Math.random() * w, -12, {
+        type: 'confetti', colors: CONFETTI, size: 7,
+        vx: (Math.random() * 2 - 1) * 40, vy: 90 + Math.random() * 120,
+        life: 2.6, grav: 30, drag: 0.4, vrot: 6,
+      });
+    }
+  }
   mergeFlash(x, y) {
     this.sparks(x, y, 16);
     this.confetti(x, y, 12);

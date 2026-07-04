@@ -2,7 +2,7 @@
 // title/end/pause screens. Every screen works on keyboard and controller.
 
 import { clamp, lerp } from './pool.js';
-import { SPECIES, SPECIES_IDS, WAVES, UNLOCK_ORDER, MOB_CAP, TIPS, DEFEAT_LINES, VICTORY_LINES, CHARACTERS, DIFFICULTIES, PIPER_UPGRADES, TRAIN_COSTS } from './data.js';
+import { SPECIES, SPECIES_IDS, WAVES, UNLOCK_ORDER, MOB_CAP, TIPS, DEFEAT_LINES, VICTORY_LINES, CHARACTERS, DIFFICULTIES, PIPER_UPGRADES, TRAIN_COSTS, CHALLENGES, SPICES } from './data.js';
 import { statFor, drawCrown } from './critters.js';
 import { PIPER_COLORS, Piper } from './piper.js';
 import { VIEW_W, VIEW_H } from './game.js';
@@ -57,7 +57,7 @@ export class UI {
   openCrossroads() {
     this.pickSlot = 0;
     this.picksLeft = this.g.players.length;
-    this.cards = this.g.drawChoices(3);
+    this.cards = this.g.drawChoices(3 + (this.g.save.pups.clover || 0));
     this.cardIdx = 1;
   }
   openEnd(won) {
@@ -158,7 +158,7 @@ export class UI {
         }
         const join = inp.joinPress();
         if (join) { inp.assign(1, join); g.audio.sfx('recruit'); }
-        const n = 9;
+        const n = 11;
         if (inp.anyMenu('up')) { this.menuIdx = (this.menuIdx + n - 1) % n; g.audio.sfx('uiMove'); }
         if (inp.anyMenu('down')) { this.menuIdx = (this.menuIdx + 1) % n; g.audio.sfx('uiMove'); }
         const dir = inp.anyMenu('right') ? 1 : inp.anyMenu('left') ? -1 : 0;
@@ -175,8 +175,13 @@ export class UI {
             g.persist(); g.audio.sfx('uiMove');
             g.audio.say(DIFFICULTIES[g.save.diff].name + '!', true);
           }
-          if (this.menuIdx === 4) { g.save.little[0] = !g.save.little[0]; g.persist(); g.audio.sfx('uiMove'); }
-          if (this.menuIdx === 5) { g.save.little[1] = !g.save.little[1]; g.persist(); g.audio.sfx('uiMove'); }
+          if (this.menuIdx === 4 && g.save.endlessUnlocked) {
+            g.save.mode = 1 - (g.save.mode || 0);
+            g.persist(); g.audio.sfx('uiMove');
+            g.audio.say(g.save.mode ? 'Keep marching! The endless parade!' : 'Story mode!', true);
+          }
+          if (this.menuIdx === 5) { g.save.little[0] = !g.save.little[0]; g.persist(); g.audio.sfx('uiMove'); }
+          if (this.menuIdx === 6) { g.save.little[1] = !g.save.little[1]; g.persist(); g.audio.sfx('uiMove'); }
         }
         if (inp.anyPressed('confirm')) {
           g.audio.ensure();
@@ -194,13 +199,20 @@ export class UI {
             g.audio.say(CHARACTERS[g.save.chars[pl]].name + '!', true);
           }
           else if (this.menuIdx === 3) { /* difficulty changes with left/right */ }
-          else if (this.menuIdx === 4) { g.save.little[0] = !g.save.little[0]; g.persist(); }
-          else if (this.menuIdx === 5) { g.save.little[1] = !g.save.little[1]; g.persist(); }
-          else if (this.menuIdx === 6) {
+          else if (this.menuIdx === 4) {
+            if (g.save.endlessUnlocked) { g.save.mode = 1 - (g.save.mode || 0); g.persist(); }
+          }
+          else if (this.menuIdx === 5) { g.save.little[0] = !g.save.little[0]; g.persist(); }
+          else if (this.menuIdx === 6) { g.save.little[1] = !g.save.little[1]; g.persist(); }
+          else if (this.menuIdx === 7) {
             g.state = 'train'; this.trainIdx = 0;
             g.audio.say('Training camp! Spend banked acorns to make your critters stronger forever!', true);
           }
-          else if (this.menuIdx === 7) g.setMuted(!g.audio.muted);
+          else if (this.menuIdx === 8) {
+            g.state = 'quests'; this.questIdx = 0;
+            g.audio.say('Quests! Finish them for acorn bounties!', true);
+          }
+          else if (this.menuIdx === 9) g.setMuted(!g.audio.muted);
           else { g.state = 'saves'; this.saveMode = 'pick'; this.saveBtn = 0; }
           g.audio.sfx('uiPick');
         }
@@ -224,8 +236,9 @@ export class UI {
           break;
         }
         const slot = this.pickSlot;
-        if (inp.menu(slot, 'left') || inp.anyMenu('left')) { this.cardIdx = (this.cardIdx + 2) % 3; g.audio.sfx('uiMove'); }
-        if (inp.menu(slot, 'right') || inp.anyMenu('right')) { this.cardIdx = (this.cardIdx + 1) % 3; g.audio.sfx('uiMove'); }
+        const nc = Math.max(1, this.cards.length);
+        if (inp.menu(slot, 'left') || inp.anyMenu('left')) { this.cardIdx = (this.cardIdx + nc - 1) % nc; g.audio.sfx('uiMove'); }
+        if (inp.menu(slot, 'right') || inp.anyMenu('right')) { this.cardIdx = (this.cardIdx + 1) % nc; g.audio.sfx('uiMove'); }
         if (inp.anyPressed('confirm')) {
           const c = this.cards[this.cardIdx];
           if (c) {
@@ -246,13 +259,21 @@ export class UI {
       }
       case 'loadout': {
         const roster = g.unlockedList();
-        const cells = roster.length + 1; // + GO
+        const cells = roster.length + SPICES.length + 1; // species + spices + GO
         if (this.loIdx == null) this.loIdx = 0;
         if (inp.anyMenu('left')) { this.loIdx = (this.loIdx + cells - 1) % cells; g.audio.sfx('uiMove'); }
         if (inp.anyMenu('right')) { this.loIdx = (this.loIdx + 1) % cells; g.audio.sfx('uiMove'); }
         if (inp.anyPressed('confirm')) {
           g.audio.sfx('uiPick');
-          if (this.loIdx >= roster.length) {
+          if (this.loIdx >= roster.length && this.loIdx < roster.length + SPICES.length) {
+            // Spice toggle.
+            const si = this.loIdx - roster.length;
+            g.save.spices[si] = !g.save.spices[si];
+            g.persist();
+            g.audio.say(g.save.spices[si]
+              ? SPICES[si].name + ' spice on! More acorns, more trouble!'
+              : SPICES[si].name + ' spice off!');
+          } else if (this.loIdx >= roster.length + SPICES.length) {
             // GO: next player picks, or march.
             if (this.loSlot === 0 && g.input.deviceFor(1)) {
               this.loSlot = 1; this.loIdx = 0;
@@ -296,18 +317,27 @@ export class UI {
           } else g.quitToTitle();
         }
         break;
+      case 'quests': {
+        if (inp.anyPressed('back') || inp.anyPressed('confirm')) { g.state = 'title'; g.audio.sfx('uiPick'); }
+        break;
+      }
       case 'train': {
-        const roster = SPECIES_IDS;
-        const nPup = PIPER_UPGRADES.length;
-        const cells = nPup + roster.length + 1; // piper shelf + species + back
-        const spOf = i => (i >= nPup && i < nPup + roster.length) ? roster[i - nPup] : null;
-        if (inp.anyMenu('left')) { this.trainIdx = (this.trainIdx + cells - 1) % cells; g.audio.sfx('uiMove'); const sp = spOf(this.trainIdx); if (sp && g.unlocked(sp)) g.audio.sfx(SPECIES[sp].sound); }
-        if (inp.anyMenu('right')) { this.trainIdx = (this.trainIdx + 1) % cells; g.audio.sfx('uiMove'); const sp = spOf(this.trainIdx); if (sp && g.unlocked(sp)) g.audio.sfx(SPECIES[sp].sound); }
+        // Two tabs: HERO (piper upgrades) and CRITTERS (species levels).
+        this.trainTab = this.trainTab || 0;
+        const items = this.trainTab === 0 ? PIPER_UPGRADES : SPECIES_IDS;
+        const cells = items.length + 1; // + back
+        if (inp.anyMenu('up') || inp.anyMenu('down')) {
+          this.trainTab = 1 - this.trainTab; this.trainIdx = 0;
+          g.audio.sfx('uiMove');
+          g.audio.say(this.trainTab === 0 ? 'Hero upgrades!' : 'Critter training!');
+        }
+        if (inp.anyMenu('left')) { this.trainIdx = (this.trainIdx + cells - 1) % cells; g.audio.sfx('uiMove'); if (this.trainTab === 1 && this.trainIdx < items.length && g.unlocked(items[this.trainIdx])) g.audio.sfx(SPECIES[items[this.trainIdx]].sound); }
+        if (inp.anyMenu('right')) { this.trainIdx = (this.trainIdx + 1) % cells; g.audio.sfx('uiMove'); if (this.trainTab === 1 && this.trainIdx < items.length && g.unlocked(items[this.trainIdx])) g.audio.sfx(SPECIES[items[this.trainIdx]].sound); }
         if (inp.anyPressed('back')) { g.state = 'title'; g.audio.sfx('uiMove'); }
         else if (inp.anyPressed('confirm')) {
-          if (this.trainIdx >= nPup + roster.length) { g.state = 'title'; g.audio.sfx('uiPick'); }
-          else if (this.trainIdx < nPup) { if (!g.buyPup(PIPER_UPGRADES[this.trainIdx].id)) g.audio.sfx('uiMove'); }
-          else if (!g.trainSpecies(spOf(this.trainIdx))) g.audio.sfx('uiMove');
+          if (this.trainIdx >= items.length) { g.state = 'title'; g.audio.sfx('uiPick'); }
+          else if (this.trainTab === 0) { if (!g.buyPup(items[this.trainIdx].id)) g.audio.sfx('uiMove'); }
+          else if (!g.trainSpecies(items[this.trainIdx])) g.audio.sfx('uiMove');
         }
         break;
       }
@@ -343,6 +373,7 @@ export class UI {
       case 'loadout': this.renderLoadout(ctx); break;
       case 'draft': this.renderDraft(ctx); break;
       case 'train': this.renderTrain(ctx); break;
+      case 'quests': this.renderQuests(ctx); break;
       case 'run': this.renderWorld(ctx); this.renderHUD(ctx); if (g.paused) this.renderPause(ctx); break;
       case 'crossroads': this.renderWorld(ctx); this.renderCrossroads(ctx); break;
       case 'gameover': this.renderWorld(ctx); this.renderEnd(ctx, false); break;
@@ -534,7 +565,9 @@ export class UI {
     }
     ctx.font = `bold 13px ${FONT}`;
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.fillText(`wave ${g.waveNum}/12 · ${Math.ceil(g.waveT)}s`, VIEW_W / 2, mh.frac < 0.5 ? 94 : 80);
+    ctx.fillText(g.save.mode === 1
+      ? `wave ${g.waveNum} · ♾ ENDLESS · ${Math.ceil(g.waveT)}s`
+      : `wave ${g.waveNum}/12 · ${Math.ceil(g.waveT)}s`, VIEW_W / 2, mh.frac < 0.5 ? 94 : 80);
 
     // Piper HP bars — big, labeled, they POP on damage.
     g.players.forEach((p, i) => {
@@ -688,6 +721,29 @@ export class UI {
         ctx.closePath(); ctx.fill();
         ctx.restore();
       }
+    }
+
+    // MEGA-CELEBRATION: rainbow CONGRATULATIONS!!! letter slam.
+    if (g.celebration && g.celebration.big) {
+      const word = 'CONGRATULATIONS!!!';
+      const RAIN = ['#ff5c9e', '#ff9a3c', '#ffd166', '#7ec850', '#5aa9ff', '#c792ea'];
+      ctx.save();
+      ctx.textAlign = 'center';
+      const shown = Math.min(word.length, Math.floor(g.celebration.t / 0.09));
+      let totalW = 0;
+      ctx.font = 'bold 62px ' + FONT;
+      const widths = [...word].map(ch => ctx.measureText(ch).width);
+      for (let i = 0; i < word.length; i++) totalW += widths[i];
+      let cx = VIEW_W / 2 - totalW / 2;
+      for (let i = 0; i < shown; i++) {
+        const wob = Math.sin(this.t * 6 + i * 0.8) * 6;
+        ctx.fillStyle = RAIN[i % RAIN.length];
+        ctx.strokeStyle = 'rgba(30,20,10,0.85)'; ctx.lineWidth = 8;
+        ctx.strokeText(word[i], cx + widths[i] / 2, VIEW_H * 0.36 + wob);
+        ctx.fillText(word[i], cx + widths[i] / 2, VIEW_H * 0.36 + wob);
+        cx += widths[i];
+      }
+      ctx.restore();
     }
 
     // LAST STAND: mob gone — countdown + arrow to the nearest cage.
@@ -1078,6 +1134,18 @@ export class UI {
         ctx.fillText('DONE!', x + cw / 2, y + 120);
         ctx.font = 'bold 15px ' + FONT;
         ctx.fillText('next wave ▶', x + cw / 2, y + 150);
+      } else if (o.fortune) {
+        ctx.font = '46px sans-serif';
+        ctx.fillText('🔮', x + cw / 2, y + 84);
+        ctx.font = 'bold 17px ' + FONT;
+        ctx.fillStyle = '#5a3a7a';
+        ctx.fillText('FORTUNE', x + cw / 2, y + 124);
+        ctx.font = '13px ' + FONT;
+        ctx.fillText('a mystery...', x + cw / 2, y + 148);
+        ctx.fillText('(could be ANYTHING)', x + cw / 2, y + 166);
+        ctx.font = 'bold 20px ' + FONT;
+        ctx.fillStyle = o.sold ? '#8a8a7a' : afford ? '#e8a000' : '#c05a5a';
+        ctx.fillText(o.sold ? 'SOLD!' : '🌰 ' + o.price, x + cw / 2, y + 214);
       } else if (o.train) {
         ctx.font = '46px sans-serif';
         ctx.fillText('💪', x + cw / 2, y + 84);
@@ -1150,15 +1218,69 @@ export class UI {
         ctx.fillText('★ ' + (picked + 1), x + cs / 2, y + cs - 6);
       }
     });
-    // GO button.
+    // Spice jar row.
     const rows = Math.ceil(roster.length / per);
-    const gy = 180 + rows * (cs + gap) + 8;
-    const goSel = this.loIdx >= roster.length;
+    const sy = 180 + rows * (cs + gap) + 4;
+    const spw = 240;
+    SPICES.forEach((sp2, i) => {
+      const x = VIEW_W / 2 - (SPICES.length * (spw + 16) - 16) / 2 + i * (spw + 16);
+      const on = g.save.spices[i];
+      const sel = this.loIdx === roster.length + i;
+      ctx.fillStyle = on ? 'rgba(224,92,92,0.85)' : 'rgba(255,255,255,0.6)';
+      rr(ctx, x, sy, spw, 44, 10); ctx.fill();
+      if (sel) { ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 4; rr(ctx, x, sy, spw, 44, 10); ctx.stroke(); }
+      ctx.font = 'bold 15px ' + FONT;
+      ctx.fillStyle = on ? '#fff' : '#5a5a4a';
+      ctx.fillText(sp2.emoji + ' ' + sp2.name + (on ? ' ON' : ''), x + spw / 2, sy + 19);
+      ctx.font = '11px ' + FONT;
+      ctx.fillText(sp2.desc + ' · +25% acorns', x + spw / 2, sy + 36);
+    });
+    // GO button.
+    const gy = sy + 56;
+    const goSel = this.loIdx >= roster.length + SPICES.length;
     ctx.fillStyle = goSel ? '#7ec850' : '#a8cc90';
     rr(ctx, VIEW_W / 2 - 160, gy, 320, 56, 14); ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 26px ' + FONT;
     ctx.fillText('🐸 MARCH!', VIEW_W / 2, gy + 38);
+  }
+
+  renderQuests(ctx) {
+    const g = this.g;
+    const grd = ctx.createLinearGradient(0, 0, 0, VIEW_H);
+    grd.addColorStop(0, '#8fd0ff'); grd.addColorStop(0.6, '#c9ecff');
+    grd.addColorStop(0.6, '#79b562'); grd.addColorStop(1, '#5a8a4a');
+    ctx.fillStyle = grd; ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 44px ' + FONT;
+    ctx.strokeStyle = 'rgba(30,45,20,0.85)'; ctx.lineWidth = 7;
+    ctx.strokeText('⭐ QUESTS', VIEW_W / 2, 90);
+    ctx.fillStyle = '#ffd166';
+    ctx.fillText('⭐ QUESTS', VIEW_W / 2, 90);
+    ctx.font = 'bold 18px ' + FONT;
+    ctx.fillStyle = '#3a5a2e';
+    ctx.fillText('finish a quest, earn the bounty — paid automatically at run end', VIEW_W / 2, 126);
+    CHALLENGES.forEach((q, i) => {
+      const y = 160 + i * 58;
+      const done = !!g.save.quests[q.id];
+      ctx.fillStyle = done ? 'rgba(126,200,80,0.35)' : 'rgba(255,255,255,0.7)';
+      rr(ctx, VIEW_W / 2 - 380, y, 760, 48, 12); ctx.fill();
+      ctx.textAlign = 'left';
+      ctx.font = 'bold 19px ' + FONT;
+      ctx.fillStyle = done ? '#2e5a1e' : '#3a5a2e';
+      ctx.fillText((done ? '✅ ' : '⬜ ') + q.name, VIEW_W / 2 - 360, y + 30);
+      ctx.font = '15px ' + FONT;
+      ctx.fillStyle = '#5a6a4a';
+      ctx.fillText(q.desc, VIEW_W / 2 - 140, y + 30);
+      ctx.textAlign = 'right';
+      ctx.font = 'bold 17px ' + FONT;
+      ctx.fillStyle = done ? '#5a8a4a' : '#e8a000';
+      ctx.fillText(done ? 'PAID' : '+' + q.bounty + '🌰', VIEW_W / 2 + 360, y + 30);
+      ctx.textAlign = 'center';
+    });
+    ctx.font = 'bold 18px ' + FONT;
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillText('press your button to go back', VIEW_W / 2, VIEW_H - 30);
   }
 
   renderTrain(ctx) {
@@ -1176,31 +1298,57 @@ export class UI {
     ctx.font = 'bold 22px ' + FONT;
     ctx.fillStyle = '#fff';
     ctx.fillText('🌰 bank: ' + g.save.acorns + ' — each level = +8% HP & damage, FOREVER', VIEW_W / 2, 126);
-    // Piper shelf: the four permanent hero upgrades.
-    const nPup = PIPER_UPGRADES.length;
-    const pw = 218, ph = 96, pgap = 16;
-    const px0 = VIEW_W / 2 - (nPup * (pw + pgap) - pgap) / 2;
-    PIPER_UPGRADES.forEach((up, i) => {
-      const x = px0 + i * (pw + pgap), y = 140;
-      const sel = this.trainIdx === i;
-      const lv = g.pupLevel(up.id);
-      const cost = g.pupCost(up.id);
-      ctx.fillStyle = sel ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.6)';
-      rr(ctx, x, y, pw, ph, 12); ctx.fill();
-      if (sel) { ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 5; rr(ctx, x, y, pw, ph, 12); ctx.stroke(); }
-      ctx.font = 'bold 15px ' + FONT;
-      ctx.fillStyle = '#3a5a2e';
-      ctx.fillText(up.emoji + ' ' + up.name, x + pw / 2, y + 24);
-      ctx.font = '12px ' + FONT;
-      ctx.fillStyle = '#5a6a4a';
-      ctx.fillText(up.desc, x + pw / 2, y + 43);
-      ctx.font = 'bold 14px ' + FONT;
-      ctx.fillStyle = '#e8a000';
-      ctx.fillText('●'.repeat(lv) + '○'.repeat(up.max - lv), x + pw / 2, y + 63);
-      ctx.font = 'bold 14px ' + FONT;
-      if (cost == null) { ctx.fillStyle = '#7ec850'; ctx.fillText('MAXED!', x + pw / 2, y + 84); }
-      else { ctx.fillStyle = g.save.acorns >= cost ? '#8a5a1a' : '#c05a5a'; ctx.fillText('buy: ' + cost + '🌰', x + pw / 2, y + 84); }
-    });
+    // Tabs.
+    for (let tb = 0; tb < 2; tb++) {
+      const tx = VIEW_W / 2 + (tb === 0 ? -230 : 30);
+      const on = this.trainTab === tb;
+      ctx.fillStyle = on ? '#ffd166' : 'rgba(255,255,255,0.5)';
+      rr(ctx, tx, 142, 200, 40, 12); ctx.fill();
+      ctx.fillStyle = on ? '#5a3a1a' : '#4a5a3e';
+      ctx.font = 'bold 19px ' + FONT;
+      ctx.fillText(tb === 0 ? '🎩 HERO' : '🐾 CRITTERS', tx + 100, 169);
+    }
+    ctx.font = '13px ' + FONT;
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.fillText('▲ ▼ switch tabs · ◀ ▶ browse · confirm to buy', VIEW_W / 2, 202);
+
+    if (this.trainTab === 0) {
+      // HERO tab: all piper upgrades in a grid.
+      const per2 = 5, pw = 226, ph = 100, pgap = 14;
+      PIPER_UPGRADES.forEach((up, i) => {
+        const row = Math.floor(i / per2), col = i % per2;
+        const rowLen = Math.min(per2, PIPER_UPGRADES.length - row * per2);
+        const x = VIEW_W / 2 - (rowLen * (pw + pgap) - pgap) / 2 + col * (pw + pgap);
+        const y = 222 + row * (ph + pgap);
+        const sel = this.trainIdx === i;
+        const lv = g.pupLevel(up.id);
+        const cost = g.pupCost(up.id);
+        ctx.fillStyle = sel ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.6)';
+        rr(ctx, x, y, pw, ph, 12); ctx.fill();
+        if (sel) { ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 5; rr(ctx, x, y, pw, ph, 12); ctx.stroke(); }
+        ctx.font = 'bold 15px ' + FONT;
+        ctx.fillStyle = '#3a5a2e';
+        ctx.fillText(up.emoji + ' ' + up.name, x + pw / 2, y + 24);
+        ctx.font = '11px ' + FONT;
+        ctx.fillStyle = '#5a6a4a';
+        ctx.fillText(up.desc, x + pw / 2, y + 43);
+        ctx.font = 'bold 13px ' + FONT;
+        ctx.fillStyle = '#e8a000';
+        ctx.fillText('●'.repeat(lv) + '○'.repeat(up.max - lv), x + pw / 2, y + 62);
+        ctx.font = 'bold 13px ' + FONT;
+        if (cost == null) { ctx.fillStyle = '#7ec850'; ctx.fillText('MAXED!', x + pw / 2, y + 84); }
+        else { ctx.fillStyle = g.save.acorns >= cost ? '#8a5a1a' : '#c05a5a'; ctx.fillText('buy: ' + cost + '🌰', x + pw / 2, y + 84); }
+      });
+      const rows2 = Math.ceil(PIPER_UPGRADES.length / per2);
+      const gy2 = 222 + rows2 * (ph + pgap) + 6;
+      const backSel2 = this.trainIdx >= PIPER_UPGRADES.length;
+      ctx.fillStyle = backSel2 ? '#7ec850' : '#a8cc90';
+      rr(ctx, VIEW_W / 2 - 140, gy2, 280, 46, 12); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 22px ' + FONT;
+      ctx.fillText('⬅ BACK', VIEW_W / 2, gy2 + 31);
+      return;
+    }
 
     const per = 6, cs = 138, gap = 14;
     SPECIES_IDS.forEach((sp, i) => {
@@ -1337,16 +1485,20 @@ export class UI {
       `P1 plays: ◀ ${c0.emoji} ${c0.name} ▶`,
       `P2 plays: ◀ ${c1.emoji} ${c1.name} ▶`,
       `Difficulty: ◀ ${df.emoji} ${df.name} ▶ (${(g.save.diffUnlocked || 0) + 1}/5 unlocked)`,
+      g.save.endlessUnlocked
+        ? `Mode: ◀ ${g.save.mode ? '♾ KEEP MARCHING (best: wave ' + (g.save.bestEndless || 12) + ')' : '🏁 STORY (12 waves)'} ▶`
+        : 'Mode: 🏁 STORY — beat wave 12 to unlock ♾ KEEP MARCHING',
       `P1 Little Piper mode: ${g.save.little[0] ? 'ON ★' : 'off'}`,
       `P2 Little Piper mode: ${g.save.little[1] ? 'ON ★' : 'off'}`,
       `🏋️ TRAINING CAMP  (bank: ${g.save.acorns}🌰)`,
+      `⭐ QUESTS`,
       `Sound: ${g.audio.muted ? 'OFF' : 'ON'}`,
       `SAVE FILES  (playing save ${(g.slotIdx || 0) + 1})`,
     ];
     items.forEach((s, i) => {
       ctx.font = `bold ${i === 0 ? 28 : 18}px ${FONT}`;
       ctx.fillStyle = this.menuIdx === i ? '#fff' : 'rgba(255,255,255,0.72)';
-      const y = 262 + i * 36 + (i > 0 ? 6 : 0);
+      const y = 258 + i * 32 + (i > 0 ? 6 : 0);
       if (this.menuIdx === i) {
         ctx.strokeStyle = 'rgba(30,45,20,0.6)'; ctx.lineWidth = 5;
         ctx.strokeText((i === 0 ? '🐸 ' : '') + s, VIEW_W / 2, y);
@@ -1358,7 +1510,7 @@ export class UI {
       const blurb = this.menuIdx === 3 ? df.blurb : (this.menuIdx === 1 ? c0 : c1).desc;
       ctx.font = `italic 15px ${FONT}`;
       ctx.fillStyle = '#fff8d0';
-      ctx.fillText(blurb, VIEW_W / 2, 268 + 9 * 40 - 14);
+      ctx.fillText(blurb, VIEW_W / 2, 258 + 11 * 32 + 12);
     }
 
     ctx.font = `bold 14px ${FONT}`;
@@ -1424,6 +1576,22 @@ export class UI {
     const mins = Math.floor(s.time / 60), secs = Math.floor(s.time % 60);
     ctx.fillText(`wave ${g.waveNum}/12 · ${s.bots} bots scrapped · biggest mob: ${g.mob.biggest} · 🌰 ${s.acorns} · ${mins}:${String(secs).padStart(2, '0')}`, VIEW_W / 2, won ? 252 : 322);
 
+    if (g.questsDone && g.questsDone.length) {
+      ctx.font = 'bold 19px ' + FONT;
+      ctx.fillStyle = '#ffd166';
+      ctx.fillText('⭐ QUEST' + (g.questsDone.length > 1 ? 'S' : '') + ' COMPLETE: '
+        + g.questsDone.map(q => q.name + ' (+' + q.bounty + '🌰)').join('  ·  '), VIEW_W / 2, VIEW_H - 210);
+    }
+    if (g.nextGoal) {
+      const gy = VIEW_H - 170;
+      ctx.fillStyle = g.nextGoal.ready ? 'rgba(126,200,80,0.25)' : 'rgba(255,209,102,0.18)';
+      rr(ctx, VIEW_W / 2 - 340, gy - 26, 680, 44, 12); ctx.fill();
+      ctx.strokeStyle = g.nextGoal.ready ? '#7ec850' : '#ffd166'; ctx.lineWidth = 3;
+      rr(ctx, VIEW_W / 2 - 340, gy - 26, 680, 44, 12); ctx.stroke();
+      ctx.font = 'bold 18px ' + FONT;
+      ctx.fillStyle = g.nextGoal.ready ? '#b8f0a0' : '#ffe9a0';
+      ctx.fillText((g.nextGoal.ready ? '✨ ' : '🎯 ') + g.nextGoal.text, VIEW_W / 2, gy + 3);
+    }
     if (g.diffJustUnlocked) {
       ctx.font = 'bold 22px ' + FONT;
       ctx.fillStyle = '#c05aff';
