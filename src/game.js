@@ -63,7 +63,7 @@ export class Game {
     // ART STYLE TEST: pre-rendered Blender frames (browser only; headless
     // tests skip this and the render falls back to procedural sprites).
     this.artFrames = {};
-    const ART_SPECIES = ['frog', 'bunny', 'duck']; // grows as the roster converts
+    const ART_SPECIES = SPECIES_IDS; // the whole roster is kawaii now
     if (typeof Image !== 'undefined') {
       for (const sp of ART_SPECIES) {
         this.artFrames[sp] = { front: [], back: [], side: [] };
