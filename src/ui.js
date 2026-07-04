@@ -55,12 +55,14 @@ export class UI {
     }
   }
   openCrossroads() {
+    this.uiLock = 0.55; // pop-up grace: no accidental picks from held buttons
     this.pickSlot = 0;
     this.picksLeft = this.g.players.length;
     this.cards = this.g.drawChoices(3 + (this.g.save.pups.clover || 0));
     this.cardIdx = 1;
   }
   openEnd(won) {
+    this.uiLock = 0.6;
     const pool = won ? VICTORY_LINES : DEFEAT_LINES;
     this.endLine = pool[Math.floor(Math.random() * pool.length)];
   }
@@ -68,6 +70,7 @@ export class UI {
   // ============ UPDATE ============
   update(dt) {
     this.t += dt;
+    this.uiLock = Math.max(0, (this.uiLock || 0) - dt);
     this.mobPop = Math.max(0, this.mobPop - dt);
     this.dmgFlash = Math.max(0, (this.dmgFlash || 0) - dt);
     this.heartPop = Math.max(0, (this.heartPop || 0) - dt);
@@ -242,6 +245,7 @@ export class UI {
         break;
       }
       case 'crossroads': {
+        if (this.uiLock > 0) break; // let the screen land before it listens
         if (this.shopMode) {
           const n = this.shopOffers.length + 1; // + DONE
           if (inp.anyMenu('left')) { this.shopIdx = (this.shopIdx + n - 1) % n; g.audio.sfx('uiMove'); }
@@ -274,6 +278,7 @@ export class UI {
           if (this.picksLeft <= 0 || !this.cards.length) {
             this.shopMode = true;
             this.shopIdx = 0;
+            this.uiLock = 0.4;
             this.shopOffers = g.makeShop();
             g.audio.say('The crossroads market is open! Spend acorns, or save them!');
           }
@@ -356,10 +361,12 @@ export class UI {
         }
         break;
       case 'gameover': case 'victory':
+        if (this.uiLock > 0) break;
         if (inp.anyPressed('confirm')) {
           g.audio.sfx('uiPick');
           if (g.draftOffers && g.draftOffers.length) {
             g.state = 'draft';
+            this.uiLock = 0.5;
             this.draftIdx = 1;
             g.audio.say('Pick a new friend for your roster!', true);
           } else g.quitToTitle();
@@ -390,6 +397,7 @@ export class UI {
         break;
       }
       case 'draft': {
+        if (this.uiLock > 0) break;
         const n = g.draftOffers.length;
         if (inp.anyMenu('left')) { this.draftIdx = (this.draftIdx + n - 1) % n; g.audio.sfx('uiMove'); g.audio.say(SPECIES[g.draftOffers[this.draftIdx]].name); }
         if (inp.anyMenu('right')) { this.draftIdx = (this.draftIdx + 1) % n; g.audio.sfx('uiMove'); g.audio.say(SPECIES[g.draftOffers[this.draftIdx]].name); }

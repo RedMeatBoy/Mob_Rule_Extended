@@ -128,17 +128,17 @@ export const ENEMIES = {
     range: 240, keepDist: 180, shootCd: 2.2, projSpeed: 175, flies: true,
   },
   mowtron: {
-    name: 'MOWTRON 9000', hp: 450, dmg: 5, speed: 40, size: 34, xp: 60, boss: true,
+    name: 'MOWTRON 9000', hp: 450, dmg: 5, speed: 40, size: 34, xp: 60, boss: true, drawScale: 2,
     body: '#5a7a2a', accent: '#e05c5c', behavior: 'boss_mowtron',
     chargeSpeed: 340, telegraph: 1.0,
   },
   succ: {
-    name: 'THE SUCC-5000', hp: 650, dmg: 4, speed: 35, size: 36, xp: 80, boss: true,
+    name: 'THE SUCC-5000', hp: 650, dmg: 4, speed: 35, size: 36, xp: 80, boss: true, drawScale: 2,
     body: '#6a5a8a', accent: '#c8ccd8', behavior: 'boss_succ',
     pullRadius: 340, pullForce: 130,
   },
   supervisor: { // final boss: BUNNYTRON, the giant pink robot bunny
-    name: 'BUNNYTRON', hp: 950, dmg: 6, speed: 45, size: 38, xp: 120, boss: true,
+    name: 'BUNNYTRON', hp: 950, dmg: 6, speed: 45, size: 38, xp: 120, boss: true, drawScale: 3,
     body: '#ff8fb3', accent: '#ffd7e6', behavior: 'boss_supervisor',
   },
 };

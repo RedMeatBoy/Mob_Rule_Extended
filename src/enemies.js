@@ -621,9 +621,11 @@ export class EnemySystem {
         ctx.setLineDash([]);
       }
 
-      // Shadow + body.
+      // Shadow + body. drawScale makes bosses LOOK colossal without
+      // touching their combat size (bigger hitboxes = accidentally deadlier).
+      const ds = e.def.drawScale || 1;
       ctx.fillStyle = 'rgba(40,60,30,0.28)';
-      ctx.beginPath(); ctx.ellipse(x, y + e.size * 0.8, e.size * 0.85, e.size * 0.32, 0, 0, 6.29); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x, y + e.size * 0.8, e.size * 0.85 * ds, e.size * 0.32 * ds, 0, 0, 6.29); ctx.fill();
       const shake = (e.state === 'aim' || e.state === 'vacuum') ? Math.sin(this.time * 40) * 1.5 : 0;
       const artB = game.artFrames && game.artFrames.bots && game.save && !game.save.classicArt
         ? game.artFrames.bots[e.kind] : null;
@@ -641,7 +643,7 @@ export class EnemySystem {
         const frames = artB[view] || artB.front;
         const fi = frames.length === 1 ? 0 : (moving ? 6 : 0) + (Math.floor((this.time * 5 + i) % 6));
         const img = frames[fi] && frames[fi].complete && frames[fi].naturalWidth ? frames[fi] : artB.front[0];
-        const w = e.size * (e.boss ? 3.5 : 4.3) * (e.elite ? 1.1 : 1);
+        const w = e.size * (e.boss ? 3.5 : 4.3) * (e.elite ? 1.1 : 1) * ds;
         // Elites get a royal tint ring instead of the purple body.
         ctx.drawImage(img, -w / 2, -w * 0.62, w, w);
         if (e.elite) {
@@ -651,6 +653,7 @@ export class EnemySystem {
         }
       } else {
         const spr = this.sprite(e.kind, e.elite);
+        ctx.scale(ds, ds);
         ctx.drawImage(spr, -spr.width / 2, -spr.height / 2);
       }
       ctx.restore();

@@ -1146,5 +1146,31 @@ console.log('V) ECHO the Conductor + options:');
   check(!threw, 'muted voice + volume changes are safe headless');
 }
 
+console.log('W) Verdict round: giant bosses + pop-up click-guard:');
+{
+  const { ENEMIES } = await load('src/data.js');
+  check(ENEMIES.supervisor.drawScale === 3 && ENEMIES.mowtron.drawScale === 2 && ENEMIES.succ.drawScale === 2, 'bosses are drawn colossal (BUNNYTRON x3)');
+  check(ENEMIES.supervisor.size === 38 && ENEMIES.supervisor.hp === 950, 'BUNNYTRON is LARGER, not stronger — combat stats untouched');
+  // Click-guard: a button held when the crossroads pops cannot pick a card.
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  g.input.assign(0, 'kb1');
+  g.startRun();
+  g.waveT = 0; g.enemies.clear(); g.celebration = null;
+  g.frame(1 / 60);
+  check(g.state === 'crossroads' && g.ui.uiLock > 0, 'crossroads opens with the guard up', 'lock=' + (g.ui.uiLock || 0).toFixed(2));
+  const cardsBefore = g.ui.cards.length;
+  g.input.keys.add('Space');
+  g.frame(1 / 60);
+  g.input.keys.delete('Space');
+  check(g.ui.cards.length === cardsBefore && g.state === 'crossroads', 'mashed confirm during the grace window picks NOTHING');
+  for (let i = 0; i < 45; i++) g.frame(1 / 60); // guard expires
+  g.input.keys.add('Space');
+  g.frame(1 / 60);
+  g.input.keys.delete('Space');
+  check(g.ui.cards.length < cardsBefore || g.ui.shopMode || g.state === 'run', 'after the grace window, picks work normally');
+}
+
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);
 process.exit(failed ? 1 : 0);
