@@ -41,6 +41,42 @@ keep hazards readable; no platforming, no precision.
 - **Localization-lite**: the announcer already speaks; add ES/FR strings
   for UI labels (Web Speech handles the voices for free)
 
+## THE VERDICT GATE (decided 2026-07-04)
+
+Division of labor from here: **Brad finishes the majority of the Blender
+art work** (pipeline, style guide, and reference species are all committed:
+`assets/critters_kawaii.py` + `assets/STYLE.md`), runs the family playtest
+cycle, and applies polish. **The kids' verdict decides whether the game has
+commercial potential.** Everything below the line only happens on a YES.
+
+### On a YES verdict — production audio (owner: Brad + assistant)
+
+**Music** (replaces the WebAudio synth score, which becomes "classic mode"):
+1. Brad subscribes to **Suno** (paid tier = commercial-use rights; generate
+   under his account so the license is his).
+2. Assistant delivers the **prompt pack**: one prompt per arena/boss/title
+   with a shared style spine so the score sounds like one composer
+   (Backyard ukulele → Riverside banjo-creek → Farm hoedown → Quarry
+   stone-percussion → Dunes desert guitar → Plateau storm-orchestra →
+   Rooftop synthwave + 3 boss themes + title + victory).
+3. Assistant builds the **ffmpeg loop-editing script** (seamless loops from
+   Suno downloads) and the **adaptive layering engine**: per-arena track
+   selection + stem-based vertical layering driven by the existing
+   `audio.intensity` (calm ↔ combat ↔ boss). OGG ~1MB/min, lazy-loaded
+   per arena (~20MB total score).
+4. Pre-Steam, if traction is real: commission a human composer for the
+   signature main theme + boss themes ($50–300/min indie rates).
+
+**Voice** (replaces robotic Web Speech announcer):
+- Option A: pre-rendered lines via a TTS service with commercial licensing
+  (e.g. ElevenLabs paid tier) — every announcer line is already a known
+  string, so batch-render once to audio files, ship like music. Keep Web
+  Speech as the fallback for dynamic lines.
+- Option B (free, unique, on-brand): **record the family**. The announcer
+  lines read by the kids would be a genuine differentiator for a family
+  game. Both options can mix.
+- Steam AI-disclosure applies to AI voice/music the same as art: checkbox.
+
 ## Release gates (in order)
 1. itch.io page live with the current web build (free) — collect feedback
 2. Character #4 + 5 species + Park arena → "Big Update 1" (still free)
