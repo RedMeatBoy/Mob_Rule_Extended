@@ -124,6 +124,11 @@ export class AudioSystem {
     this.muted = false; this.last = new Map();
     this.voice = null; // speech-synthesis announcer (picked lazily)
     this.lead = null;  // character instrument: null(flute)|'drum'|'sawtooth'
+    // File-based score (Suno tracks). Missing files -> synth fallback.
+    this.trackBuffers = {};   // name -> AudioBuffer | 'loading' | 'missing'
+    this.trackWanted = null;  // what the game wants playing right now
+    this.trackNow = null;     // { name, source, gain }
+    this.voiceFiles = {};     // slug -> AudioBuffer | 'loading' | 'missing'
     this.playing = false; this.beat = 0; this.nextT = 0; this.interval = null;
     this.intensity = 0; // 0..1, layers in the second melody voice
   }
@@ -150,6 +155,58 @@ export class AudioSystem {
     if (this.musicGain) this.musicGain.gain.value = 0.3 * musicVol;
     if (this.sfxGain) this.sfxGain.gain.value = 0.7 * sfxVol;
   }
+  // ---- file-based music (assets/music/<name>.ogg) ----
+  requestMusic(name) {
+    this.trackWanted = name;
+    if (!this.ctx || typeof fetch === 'undefined') return;
+    const st = this.trackBuffers[name];
+    if (st === 'missing' || st === 'loading') return;
+    if (st) { this.startTrack(name); return; }
+    this.trackBuffers[name] = 'loading';
+    fetch('assets/music/' + name + '.ogg')
+      .then(r => { if (!r.ok) throw new Error('404'); return r.arrayBuffer(); })
+      .then(ab => this.ctx.decodeAudioData(ab))
+      .then(buf => {
+        this.trackBuffers[name] = buf;
+        if (this.trackWanted === name) this.startTrack(name);
+      })
+      .catch(() => { this.trackBuffers[name] = 'missing'; });
+  }
+  startTrack(name) {
+    const buf = this.trackBuffers[name];
+    if (!buf || buf === 'loading' || buf === 'missing' || !this.ctx) return;
+    if (this.trackNow && this.trackNow.name === name) return;
+    this.fadeOutTrack(0.8);
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = name !== 'victory';
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.9, this.ctx.currentTime + 1.0);
+    src.connect(gain); gain.connect(this.musicGain);
+    src.start();
+    this.trackNow = { name, source: src, gain };
+  }
+  fadeOutTrack(sec) {
+    if (!this.trackNow || !this.ctx) return;
+    const old = this.trackNow;
+    this.trackNow = null;
+    try {
+      old.gain.gain.setValueAtTime(old.gain.gain.value, this.ctx.currentTime);
+      old.gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + sec);
+      old.source.stop(this.ctx.currentTime + sec + 0.05);
+    } catch (err) {}
+  }
+  stopFileMusic() { this.trackWanted = null; this.fadeOutTrack(0.6); }
+  // Intensity swell for file tracks (subtle breath with the fight).
+  updateTrackIntensity() {
+    if (this.trackNow && this.ctx) {
+      try {
+        this.trackNow.gain.gain.setTargetAtTime(0.75 + 0.25 * Math.min(1, this.intensity), this.ctx.currentTime, 0.5);
+      } catch (err) {}
+    }
+  }
+
   setMuted(m) {
     this.muted = m;
     if (this.master) this.master.gain.value = m ? 0 : 0.7;
@@ -160,8 +217,34 @@ export class AudioSystem {
   // Excited and positive: for the pre-readers in the audience.
   // priority=true interrupts whatever is being said; otherwise a busy
   // announcer just skips the line (no backlog of stale chatter).
+  // Deterministic filename for any line (documented in RECORDING_SCRIPT.md).
+  voiceSlug(text) {
+    return String(text).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60);
+  }
   say(text, priority = false) {
     if (this.muted || this.voiceOff) return;
+    // Real voice file first (family recording or pre-rendered TTS).
+    if (this.ctx && typeof fetch !== 'undefined') {
+      const key = this.voiceSlug(text);
+      const st = this.voiceFiles[key];
+      if (st && st !== 'loading' && st !== 'missing') {
+        try {
+          const src = this.ctx.createBufferSource();
+          src.buffer = st;
+          src.connect(this.sfxGain || this.master);
+          src.start();
+          return;
+        } catch (err) {}
+      } else if (st === undefined) {
+        this.voiceFiles[key] = 'loading';
+        fetch('assets/voice/' + key + '.ogg')
+          .then(r => { if (!r.ok) throw new Error('404'); return r.arrayBuffer(); })
+          .then(ab => this.ctx.decodeAudioData(ab))
+          .then(buf => { this.voiceFiles[key] = buf; })
+          .catch(() => { this.voiceFiles[key] = 'missing'; });
+        // First utterance of a line falls through to TTS while it loads.
+      }
+    }
     try {
       if (typeof speechSynthesis === 'undefined') return;
       if (priority) speechSynthesis.cancel();
@@ -220,10 +303,16 @@ export class AudioSystem {
     this.interval = setInterval(() => this.pump(), 25);
   }
   stopMusic() {
+    this.stopFileMusic();
     this.playing = false;
     if (this.interval) { clearInterval(this.interval); this.interval = null; }
   }
   pump() {
+    if (this.trackNow) { // real score playing: synth stands down
+      this.updateTrackIntensity();
+      this.nextT = this.ctx ? this.ctx.currentTime + 0.1 : 0;
+      return;
+    }
     if (!this.playing || this.muted) { if (this.ctx) this.nextT = Math.max(this.nextT, this.ctx.currentTime + 0.1); return; }
     const song = SONGS[this.songIdx % SONGS.length];
     const totalSteps = song.mel.length;

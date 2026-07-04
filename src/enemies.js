@@ -60,6 +60,7 @@ export class EnemySystem {
     if (e.boss) {
       game.boss = e;
       game.audio.sfx('boss');
+      game.audio.requestMusic('boss_' + (kind === 'supervisor' ? 'bunnytron' : kind));
       game.shake(0.6);
     }
     return e;

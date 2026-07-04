@@ -250,6 +250,7 @@ export class Game {
       this.players.push(new Piper(1, this.arena.w / 2 + 30, this.arena.h / 2, this.save.little[1], CHARACTERS[this.save.chars[1] || 0]));
     }
     this.audio.lead = CHARACTERS[this.save.chars[0] || 0].lead;
+    this.audio.requestMusic(this.arenaDef.id);
     // Permanent piper upgrades from the Training Camp.
     for (const p of this.players) {
       p.maxHp += 15 * (this.save.pups.hp || 0);
@@ -359,6 +360,7 @@ export class Game {
   }
 
   onBossDown(e) {
+    this.audio.requestMusic(this.arenaDef.id);
     this.fx.confetti(e.x, e.y, 40);
     this.shake(0.7);
     this.audio.sfx('victory');
@@ -462,6 +464,7 @@ export class Game {
     this.nextGoal = this.computeNextGoal();
     this.persist();
     this.audio.stopMusic();
+    if (won) this.audio.requestMusic('victory');
     this.audio.sfx(won ? 'victory' : 'defeat');
     this.state = won ? 'victory' : 'gameover';
     this.ui.openEnd(won);
@@ -637,6 +640,7 @@ export class Game {
     this.state = 'title';
     this.paused = false;
     this.audio.stopMusic();
+    this.audio.requestMusic('title');
     this.fx.clear();
   }
 
