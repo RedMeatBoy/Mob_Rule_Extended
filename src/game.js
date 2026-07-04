@@ -60,6 +60,16 @@ export class Game {
     this.audio.setMuted(this.save.settings.muted);
     this.decor = [];
     this.buildDecor();
+    // ART STYLE TEST: pre-rendered Blender frames (browser only; headless
+    // tests skip this and the render falls back to procedural sprites).
+    this.artFrames = { frog: [] };
+    if (typeof Image !== 'undefined') {
+      for (let f = 1; f <= 12; f++) {
+        const img = new Image();
+        img.src = 'assets/frog/frog_' + String(f).padStart(2, '0') + '.png';
+        this.artFrames.frog.push(img);
+      }
+    }
   }
 
   defaultSave() {
@@ -78,6 +88,7 @@ export class Game {
       spices: [false, false, false],
       arena: 0,
       arenasUnlocked: 0, // win in the newest arena to unlock the next
+      artTest: false,    // Blender kawaii-frog A/B (press B on the title)
       diff: 0,           // selected difficulty
       diffUnlocked: 0,   // highest unlocked difficulty
     };
@@ -103,6 +114,7 @@ export class Game {
         bestEndless: s.bestEndless || 0,
         quests: s.quests || {},
         spices: s.spices || [false, false, false],
+        artTest: !!s.artTest,
         arena: Math.min(s.arena || 0, s.arenasUnlocked || 0),
         arenasUnlocked: Math.min(s.arenasUnlocked || 0, ARENAS.length - 1),
         diff: Math.min(s.diff || 0, s.diffUnlocked || 0),

@@ -158,6 +158,16 @@ export class UI {
         }
         const join = inp.joinPress();
         if (join) { inp.assign(1, join); g.audio.sfx('recruit'); }
+        // Art style A/B: B swaps the frogs for the Blender kawaii build.
+        const bHeld = inp.keys.has('KeyB');
+        if (bHeld && !this.artKeyHeld) {
+          g.save.artTest = !g.save.artTest;
+          g.persist();
+          g.audio.sfx('uiPick');
+          this.banner(g.save.artTest ? '🎨 NEW ART: kawaii frogs ON' : '🎨 classic art', '#ff8fb3');
+          g.audio.say(g.save.artTest ? 'New art test! Look at the frogs!' : 'Classic art!', true);
+        }
+        this.artKeyHeld = bHeld;
         const n = 11;
         if (inp.anyMenu('up')) { this.menuIdx = (this.menuIdx + n - 1) % n; g.audio.sfx('uiMove'); }
         if (inp.anyMenu('down')) { this.menuIdx = (this.menuIdx + 1) % n; g.audio.sfx('uiMove'); }
@@ -1619,6 +1629,8 @@ export class UI {
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
     ctx.fillText(`lifetime acorns: ${g.save.acorns} · best wave: ${g.save.bestWave} · biggest mob ever: ${g.save.biggestMob}`, VIEW_W / 2, 650);
     ctx.fillText('tip: ' + this.tip, VIEW_W / 2, 672);
+    ctx.fillStyle = g.save.artTest ? '#ff8fb3' : 'rgba(255,255,255,0.55)';
+    ctx.fillText('press B — art style test (kawaii frogs ' + (g.save.artTest ? 'ON 🐸✨' : 'off') + ')', VIEW_W / 2, 692);
   }
 
   renderEnd(ctx, won) {
