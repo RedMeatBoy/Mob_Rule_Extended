@@ -624,12 +624,35 @@ export class EnemySystem {
       // Shadow + body.
       ctx.fillStyle = 'rgba(40,60,30,0.28)';
       ctx.beginPath(); ctx.ellipse(x, y + e.size * 0.8, e.size * 0.85, e.size * 0.32, 0, 0, 6.29); ctx.fill();
-      const spr = this.sprite(e.kind, e.elite);
       const shake = (e.state === 'aim' || e.state === 'vacuum') ? Math.sin(this.time * 40) * 1.5 : 0;
+      const artB = game.artFrames && game.artFrames.bots && game.save && game.save.artTest
+        ? game.artFrames.bots[e.kind] : null;
+      const artReady = artB && artB.front && artB.front[0] && artB.front[0].complete && artB.front[0].naturalWidth;
       ctx.save();
       ctx.translate(x + shake, y);
       ctx.scale(e.face, 1);
-      ctx.drawImage(spr, -spr.width / 2, -spr.height / 2);
+      if (artReady) {
+        const moving = Math.abs(e.vx) + Math.abs(e.vy) > 10;
+        let view = 'front';
+        if (artB.side && moving) {
+          if (Math.abs(e.vy) > Math.abs(e.vx) * 1.2) view = e.vy < 0 ? 'back' : 'front';
+          else view = 'side';
+        }
+        const frames = artB[view] || artB.front;
+        const fi = frames.length === 1 ? 0 : (moving ? 6 : 0) + (Math.floor((this.time * 5 + i) % 6));
+        const img = frames[fi] && frames[fi].complete && frames[fi].naturalWidth ? frames[fi] : artB.front[0];
+        const w = e.size * (e.boss ? 3.5 : 4.3) * (e.elite ? 1.1 : 1);
+        // Elites get a royal tint ring instead of the purple body.
+        ctx.drawImage(img, -w / 2, -w * 0.62, w, w);
+        if (e.elite) {
+          ctx.strokeStyle = 'rgba(168,138,184,0.8)';
+          ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(0, 0, e.size + 6, 0, 6.29); ctx.stroke();
+        }
+      } else {
+        const spr = this.sprite(e.kind, e.elite);
+        ctx.drawImage(spr, -spr.width / 2, -spr.height / 2);
+      }
       ctx.restore();
 
       if (e.hitT > 0) {

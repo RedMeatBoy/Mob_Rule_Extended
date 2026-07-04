@@ -660,24 +660,30 @@ export class UI {
         ctx.beginPath(); ctx.arc(c.x, c.y, 30, 0, 6.29); ctx.fill();
         ctx.globalAlpha = 1;
       }
-      ctx.fillStyle = c.rescue ? '#d4a437' : '#8a6b45';
-      rr(ctx, c.x - 16, c.y - 14 + wb, 32, 26, 4); ctx.fill();
-      ctx.strokeStyle = c.rescue ? '#8a6b1e' : '#5a4632'; ctx.lineWidth = 2.5;
-      rr(ctx, c.x - 16, c.y - 14 + wb, 32, 26, 4); ctx.stroke();
-      for (let i = -1; i <= 1; i++) {
-        ctx.beginPath(); ctx.moveTo(c.x + i * 8, c.y - 14 + wb); ctx.lineTo(c.x + i * 8, c.y + 12 + wb); ctx.stroke();
+      const cageImg = g.save.artTest && g.artFrames.props
+        ? g.artFrames.props[c.rescue ? 'rescuecage' : 'cage'] : null;
+      if (cageImg && cageImg.complete && cageImg.naturalWidth) {
+        ctx.drawImage(cageImg, c.x - 30, c.y - 34 + wb, 60, 60);
+      } else {
+        ctx.fillStyle = c.rescue ? '#d4a437' : '#8a6b45';
+        rr(ctx, c.x - 16, c.y - 14 + wb, 32, 26, 4); ctx.fill();
+        ctx.strokeStyle = c.rescue ? '#8a6b1e' : '#5a4632'; ctx.lineWidth = 2.5;
+        rr(ctx, c.x - 16, c.y - 14 + wb, 32, 26, 4); ctx.stroke();
+        for (let i = -1; i <= 1; i++) {
+          ctx.beginPath(); ctx.moveTo(c.x + i * 8, c.y - 14 + wb); ctx.lineTo(c.x + i * 8, c.y + 12 + wb); ctx.stroke();
+        }
+        // Peeking eyes!
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(c.x - 4, c.y - 2 + wb, 3, 0, 6.29); ctx.fill();
+        ctx.beginPath(); ctx.arc(c.x + 4, c.y - 2 + wb, 3, 0, 6.29); ctx.fill();
+        ctx.fillStyle = '#2b2b2b';
+        ctx.beginPath(); ctx.arc(c.x - 4 + Math.sin(c.wob) * 1.4, c.y - 2 + wb, 1.4, 0, 6.29); ctx.fill();
+        ctx.beginPath(); ctx.arc(c.x + 4 + Math.sin(c.wob) * 1.4, c.y - 2 + wb, 1.4, 0, 6.29); ctx.fill();
       }
-      // Peeking eyes!
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(c.x - 4, c.y - 2 + wb, 3, 0, 6.29); ctx.fill();
-      ctx.beginPath(); ctx.arc(c.x + 4, c.y - 2 + wb, 3, 0, 6.29); ctx.fill();
-      ctx.fillStyle = '#2b2b2b';
-      ctx.beginPath(); ctx.arc(c.x - 4 + Math.sin(c.wob) * 1.4, c.y - 2 + wb, 1.4, 0, 6.29); ctx.fill();
-      ctx.beginPath(); ctx.arc(c.x + 4 + Math.sin(c.wob) * 1.4, c.y - 2 + wb, 1.4, 0, 6.29); ctx.fill();
       ctx.fillStyle = '#ffd166';
       ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('!', c.x, c.y - 22 + wb);
+      ctx.fillText('!', c.x, c.y - (cageImg && cageImg.complete && cageImg.naturalWidth ? 38 : 22) + wb);
     }
 
     // Skunk clouds.
@@ -696,15 +702,25 @@ export class UI {
     for (let i = 0; i < A.n; i++) {
       const a = A.get(i);
       const x = lerp(a.px, a.x, g.alpha), y = lerp(a.py, a.y, g.alpha) + Math.sin(a.bob) * 2;
-      ctx.fillStyle = '#c9843a';
-      ctx.beginPath(); ctx.ellipse(x, y + 1, 4, 5, 0, 0, 6.29); ctx.fill();
-      ctx.fillStyle = '#8a5a2a';
-      ctx.beginPath(); ctx.arc(x, y - 3, 3.6, Math.PI, 0); ctx.fill();
+      const acornImg = g.save.artTest && g.artFrames.props ? g.artFrames.props.acorn : null;
+      if (acornImg && acornImg.complete && acornImg.naturalWidth) {
+        ctx.drawImage(acornImg, x - 10, y - 12, 20, 20);
+      } else {
+        ctx.fillStyle = '#c9843a';
+        ctx.beginPath(); ctx.ellipse(x, y + 1, 4, 5, 0, 0, 6.29); ctx.fill();
+        ctx.fillStyle = '#8a5a2a';
+        ctx.beginPath(); ctx.arc(x, y - 3, 3.6, Math.PI, 0); ctx.fill();
+      }
     }
 
     // Snacks (healing apples — bots confiscate them from picnics).
     for (const s of g.snacks) {
       const y2 = s.y + Math.sin(s.bob) * 2;
+      const appleImg = g.save.artTest && g.artFrames.props ? g.artFrames.props.apple : null;
+      if (appleImg && appleImg.complete && appleImg.naturalWidth) {
+        ctx.drawImage(appleImg, s.x - 14, y2 - 16, 28, 28);
+        continue;
+      }
       ctx.fillStyle = '#e05c5c';
       ctx.beginPath(); ctx.arc(s.x, y2, 6.5, 0, 6.29); ctx.fill();
       ctx.fillStyle = '#ff9a9a';

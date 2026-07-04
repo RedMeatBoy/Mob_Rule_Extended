@@ -64,16 +64,44 @@ export class Game {
     // tests skip this and the render falls back to procedural sprites).
     this.artFrames = {};
     const ART_SPECIES = SPECIES_IDS; // the whole roster is kawaii now
+    this.artFrames.pipers = {};
+    this.artFrames.bots = {};
+    this.artFrames.props = {};
     if (typeof Image !== 'undefined') {
-      for (const sp of ART_SPECIES) {
-        this.artFrames[sp] = { front: [], back: [], side: [] };
-        for (const view of ['front', 'back', 'side']) {
-          for (let f = 1; f <= 12; f++) {
+      const loadSet = (dir, name, views, frames) => {
+        const set = {};
+        for (const view of views) {
+          set[view] = [];
+          for (let f = 1; f <= frames; f++) {
             const img = new Image();
-            img.src = 'assets/' + sp + '/' + sp + '_' + view + '_' + String(f).padStart(2, '0') + '.png';
-            this.artFrames[sp][view].push(img);
+            img.src = 'assets/' + dir + '/' + name + '_' + view + '_' + String(f).padStart(2, '0') + '.png';
+            set[view].push(img);
           }
         }
+        return set;
+      };
+      for (const sp of ART_SPECIES) this.artFrames[sp] = loadSet(sp, sp, ['front', 'back', 'side'], 12);
+      for (const who of ['pip', 'bam', 'vivi', 'echo']) {
+        this.artFrames.pipers[who] = loadSet('pipers', who, ['front', 'back', 'side'], 12);
+      }
+      // Bots: bosses render front-only; cones are a single still.
+      const BOT_ART = {
+        dustbot: 3, mower: 3, tidydrone: 3, broom: 3, bagbot: 3, conebot: 3,
+        secbot: 3, camdrone: 3, cone: 0, mowtron: 1, succ: 1, supervisor: 1,
+      };
+      for (const kind of Object.keys(BOT_ART)) {
+        const asset = kind === 'supervisor' ? 'bunnytron' : kind;
+        const mode = BOT_ART[kind];
+        this.artFrames.bots[kind] = mode === 3
+          ? loadSet('bots', asset, ['front', 'back', 'side'], 12)
+          : mode === 1
+            ? loadSet('bots', asset, ['front'], 12)
+            : loadSet('bots', asset, ['front'], 1);
+      }
+      for (const prop of ['cage', 'rescuecage', 'apple', 'acorn']) {
+        const img = new Image();
+        img.src = 'assets/props/' + prop + '_01.png';
+        this.artFrames.props[prop] = img;
       }
     }
   }

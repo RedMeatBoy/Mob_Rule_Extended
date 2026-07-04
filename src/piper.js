@@ -45,6 +45,7 @@ export class Piper {
     this.x = clamp(this.x, 34, game.arena.w - 34);
     this.y = clamp(this.y, 34, game.arena.h - 34);
     if (inp.x !== 0) this.face = inp.x > 0 ? 1 : -1;
+    this.mx = inp.x; this.my = inp.y;
     const moving = inp.x !== 0 || inp.y !== 0;
     if (moving) this.walk += dt * 10;
 
@@ -133,6 +134,28 @@ export class Piper {
     }
 
     if (this.invuln > 0 && Math.floor(this.invuln * 12) % 2 === 0) ctx.globalAlpha = 0.45;
+    // Kawaii bandleader (Wave B): swap the body for the Blender build.
+    const artP = game.artFrames && game.artFrames.pipers && game.save && game.save.artTest
+      ? game.artFrames.pipers[this.char.id] : null;
+    if (artP && artP.front && artP.front[0] && artP.front[0].complete && artP.front[0].naturalWidth) {
+      const moving2 = Math.abs(this.mx || 0) + Math.abs(this.my || 0) > 0.2;
+      let view = 'front';
+      if (moving2) {
+        if (Math.abs(this.my) > Math.abs(this.mx) * 1.2) view = this.my < 0 ? 'back' : 'front';
+        else view = 'side';
+      }
+      const frames = artP[view] || artP.front;
+      const fi = moving2 ? 6 + (Math.floor(this.walk * 1.4) % 6) : Math.floor(game.time * 4) % 6;
+      const img = frames[fi] && frames[fi].complete && frames[fi].naturalWidth ? frames[fi] : artP.front[0];
+      ctx.save();
+      ctx.translate(x, y - bob);
+      ctx.scale(this.face, 1);
+      const w = 58;
+      ctx.drawImage(img, -w / 2, -w * 0.68, w, w);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+      // (ring, HP bar, star continue below)
+    } else {
     ctx.save();
     ctx.translate(x, y - bob);
     ctx.scale(this.face, 1);
@@ -237,6 +260,7 @@ export class Piper {
     }
     ctx.restore();
     ctx.globalAlpha = 1;
+    }
 
     // Player ring + label.
     ctx.strokeStyle = this.color;
