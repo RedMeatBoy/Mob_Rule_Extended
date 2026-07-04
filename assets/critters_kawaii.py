@@ -193,9 +193,16 @@ key(10, 0.44, (1.00, 1.00, 1.00))
 key(11, 0.12, (1.00, 1.00, 1.00))
 key(12, 0.00, (1.14, 1.14, 0.80))
 
-for f in range(1, 13):
-    scene.frame_set(f)
-    scene.render.filepath = f"{out_dir}/{species}_{f:02d}.png"
-    bpy.ops.render.render(write_still=True)
+# ---------------- 3 views: front (facing camera/down), back (up),
+# side facing RIGHT (the game mirrors it for left) ----------------
+# Side = 3/4 view (40°), not a true profile: faces stay readable and the
+# far-side features never float. The classic top-down cheat.
+VIEWS = [('front', 0.0), ('back', math.pi), ('side', math.radians(40))]
+for vname, yaw in VIEWS:
+    root.rotation_euler = (0, 0, yaw)
+    for f in range(1, 13):
+        scene.frame_set(f)
+        scene.render.filepath = f"{out_dir}/{species}_{vname}_{f:02d}.png"
+        bpy.ops.render.render(write_still=True)
 
-print('KAWAII RENDER COMPLETE:', species, out_dir)
+print('KAWAII RENDER COMPLETE (3 views x 12 frames):', species, out_dir)

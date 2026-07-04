@@ -66,11 +66,13 @@ export class Game {
     const ART_SPECIES = ['frog', 'bunny', 'duck']; // grows as the roster converts
     if (typeof Image !== 'undefined') {
       for (const sp of ART_SPECIES) {
-        this.artFrames[sp] = [];
-        for (let f = 1; f <= 12; f++) {
-          const img = new Image();
-          img.src = 'assets/' + sp + '/' + sp + '_' + String(f).padStart(2, '0') + '.png';
-          this.artFrames[sp].push(img);
+        this.artFrames[sp] = { front: [], back: [], side: [] };
+        for (const view of ['front', 'back', 'side']) {
+          for (let f = 1; f <= 12; f++) {
+            const img = new Image();
+            img.src = 'assets/' + sp + '/' + sp + '_' + view + '_' + String(f).padStart(2, '0') + '.png';
+            this.artFrames[sp][view].push(img);
+          }
         }
       }
     }
@@ -108,7 +110,9 @@ export class Game {
         settings: { ...d.settings, ...(s.settings || {}) },
         little: s.little || [false, false],
         chars: s.chars || [0, 0],
-        roster: (s.roster && s.roster.length ? s.roster : d.roster),
+        // Union with the base roster: starter species (incl. bunny) are
+        // ALWAYS pickable, even on saves created before they were added.
+        roster: [...new Set([...d.roster, ...(s.roster || [])])],
         loadouts: s.loadouts || [[], []],
         levels: s.levels || {},
         pups: { ...d.pups, ...(s.pups || {}) },

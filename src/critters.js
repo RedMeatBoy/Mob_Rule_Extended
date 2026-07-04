@@ -595,12 +595,21 @@ export class MobSystem {
       ctx.translate(x, y + hop);
       ctx.scale(c.face * sq * this.sizeMul, (2 - sq) * this.sizeMul);
       const artSet = game.save && game.save.artTest && game.artFrames ? game.artFrames[c.sp] : null;
-      if (artSet && artSet.length === 12 && artSet[0].complete && artSet[0].naturalWidth) {
-        // Blender kawaii frog: idle frames 0-5, hop frames 6-11.
+      const ready = artSet && artSet.front && artSet.front[0] && artSet.front[0].complete && artSet.front[0].naturalWidth;
+      if (ready) {
+        // 4-directional kawaii sprites: heading picks the view. The side
+        // view faces RIGHT; the enclosing c.face flip mirrors it for left.
         const moving = Math.abs(c.vx) + Math.abs(c.vy) > 20;
+        let view = 'front';
+        if (moving) {
+          if (Math.abs(c.vy) > Math.abs(c.vx) * 1.2) view = c.vy < 0 ? 'back' : 'front';
+          else view = 'side';
+        }
+        const frames = artSet[view] || artSet.front;
         const fi = (moving ? 6 : 0) + (Math.floor(c.wob * 1.6) % 6);
+        const img = frames[fi] && frames[fi].complete && frames[fi].naturalWidth ? frames[fi] : artSet.front[fi];
         const w2 = size * 4.6;
-        ctx.drawImage(artSet[fi], -w2 / 2, -w2 * 0.6, w2, w2);
+        ctx.drawImage(img, -w2 / 2, -w2 * 0.6, w2, w2);
       } else {
         ctx.drawImage(spr, -spr.width / 2, -spr.height / 2);
       }
