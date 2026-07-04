@@ -724,12 +724,14 @@ export class Game {
     this.runStats.acorns += n;
     this.wallet += n;
     if (x != null) this.fx.num(x, y, `+${n} 🌰`, '#c9a05a', 11);
-    // Acorn-fed growth: every 50 acorns this run, the whole mob gets 15%
-    // physically bigger (capped at ×2 so the orbit still fits on screen).
-    const tier = Math.min(5, Math.floor(this.runStats.acorns / 50));
+    // Acorn-fed growth: every 75 acorns this run, the whole mob gets 10%
+    // physically bigger — capped at ×1.46 (4 tiers). Retuned after the
+    // wave-9 kaiju incident: difficulty/spice multipliers inflate acorn
+    // income, and a mob you can't see past wrecks the game.
+    const tier = Math.min(4, Math.floor(this.runStats.acorns / 75));
     if (tier > this.mob.growth) {
       this.mob.growth = tier;
-      this.mob.sizeMul = Math.pow(1.15, tier);
+      this.mob.sizeMul = Math.pow(1.10, tier);
       this.ui.banner('THE MOB GROWS BIGGER!', '#ffd166');
       this.audio.sfx('recruit');
       this.audio.say('Wow! All those acorns made your critters grow bigger!');

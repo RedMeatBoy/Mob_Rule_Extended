@@ -617,7 +617,9 @@ export class MobSystem {
         const frames = artSet[view] || artSet.front;
         const fi = (moving ? 6 : 0) + (Math.floor(c.wob * 1.6) % 6);
         const img = frames[fi] && frames[fi].complete && frames[fi].naturalWidth ? frames[fi] : artSet.front[fi];
-        const w2 = size * 4.6;
+        // Base size only: the ctx.scale above ALREADY applies sizeMul.
+        // (Using `size` here double-applied growth — the wave-9 kaiju bug.)
+        const w2 = statFor(c.sp, c.tier, 'size') * 4.6;
         ctx.drawImage(img, -w2 / 2, -w2 * 0.6, w2, w2);
       } else {
         ctx.drawImage(spr, -spr.width / 2, -spr.height / 2);

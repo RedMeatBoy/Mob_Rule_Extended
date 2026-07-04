@@ -492,12 +492,12 @@ console.log('M) Round 6: BUNNYTRON + acorn-fed growth:');
   g.input.assign(0, 'kb1');
   g.startRun();
   check(g.mob.sizeMul === 1, 'mob starts at normal size');
-  g.acorns(50);
-  check(g.mob.growth === 1 && Math.abs(g.mob.sizeMul - 1.15) < 0.001, '50 acorns -> +15% size', `mul=${g.mob.sizeMul}`);
-  g.acorns(150); // total 200 -> tier 4
-  check(g.mob.growth === 4, 'growth tiers stack every 50 acorns', `growth=${g.mob.growth}`);
+  g.acorns(75);
+  check(g.mob.growth === 1 && Math.abs(g.mob.sizeMul - 1.10) < 0.001, '75 acorns -> +10% size', `mul=${g.mob.sizeMul}`);
+  g.acorns(150); // total 225 -> tier 3
+  check(g.mob.growth === 3, 'growth tiers stack every 75 acorns', `growth=${g.mob.growth}`);
   g.acorns(5000);
-  check(g.mob.growth === 5 && g.mob.sizeMul <= 2.02, 'growth caps at x2', `mul=${g.mob.sizeMul.toFixed(2)}`);
+  check(g.mob.growth === 4 && g.mob.sizeMul <= 1.47, 'growth caps at x1.46 (no more kaiju mobs)', `mul=${g.mob.sizeMul.toFixed(2)}`);
   // Bigger critters get a roomier orbit.
   const small = new Game(null); small.input.assign(0, 'kb1'); small.startRun();
   const rBig = g.mob.orbitSlot(0, 10, 0).r;
