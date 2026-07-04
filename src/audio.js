@@ -134,12 +134,21 @@ export class AudioSystem {
     this.master.gain.value = this.muted ? 0 : 0.7;
     this.master.connect(this.ctx.destination);
     this.musicGain = this.ctx.createGain();
-    this.musicGain.gain.value = 0.3;
+    this.musicGain.gain.value = 0.3 * (this.musicVol != null ? this.musicVol : 1);
     this.musicGain.connect(this.master);
+    this.sfxGain = this.ctx.createGain();
+    this.sfxGain.gain.value = 0.7 * (this.sfxVol != null ? this.sfxVol : 1);
+    this.sfxGain.connect(this.master);
     const n = this.ctx.sampleRate * 0.4;
     this.noise = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
     const d = this.noise.getChannelData(0);
     for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  }
+  setVolumes(musicVol, sfxVol) {
+    this.musicVol = musicVol;
+    this.sfxVol = sfxVol;
+    if (this.musicGain) this.musicGain.gain.value = 0.3 * musicVol;
+    if (this.sfxGain) this.sfxGain.gain.value = 0.7 * sfxVol;
   }
   setMuted(m) {
     this.muted = m;
@@ -152,7 +161,7 @@ export class AudioSystem {
   // priority=true interrupts whatever is being said; otherwise a busy
   // announcer just skips the line (no backlog of stale chatter).
   say(text, priority = false) {
-    if (this.muted) return;
+    if (this.muted || this.voiceOff) return;
     try {
       if (typeof speechSynthesis === 'undefined') return;
       if (priority) speechSynthesis.cancel();
@@ -185,17 +194,17 @@ export class AudioSystem {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.linearRampToValueAtTime(vol, t + 0.012);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    o.connect(g); g.connect(dest || this.master);
+    o.connect(g); g.connect(dest || this.sfxGain || this.master);
     o.start(t); o.stop(t + dur + 0.03);
   }
-  nz(t, dur, vol, hp) {
+  nz(t, dur, vol, hp, dest) {
     if (!this.ctx) return;
     const s = this.ctx.createBufferSource(); s.buffer = this.noise;
     const f = this.ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp;
     const g = this.ctx.createGain();
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    s.connect(f); f.connect(g); g.connect(this.master);
+    s.connect(f); f.connect(g); g.connect(dest || this.sfxGain || this.master);
     s.start(t); s.stop(t + dur + 0.02);
   }
 
@@ -237,13 +246,14 @@ export class AudioSystem {
       const m = song.mel[step];
       if (m != null) {
         this.tone(nf(m), t, song.stepDur * 1.1, this.lead === 'sawtooth' ? 'sawtooth' : song.melType, song.melVol, this.musicGain, 0, 11);
+        if (this.lead === 'echo') this.tone(nf(m), t + 0.09, song.stepDur * 0.9, song.melType, song.melVol * 0.45, this.musicGain, 0, 11);
         if (this.intensity > 0.5) this.tone(nf(m + 12), t, song.stepDur * 0.8, 'sine', 0.035, this.musicGain);
       }
       // Drums.
       if (song.kick[s]) this.tone(58, t, 0.12, 'sine', 0.3, this.musicGain, 40);
       if (this.lead === 'drum' && s % 2 === 1) this.tone(70, t, 0.07, 'sine', 0.14, this.musicGain, 48); // BAM's extra beat
-      if (song.snare[s]) this.nz(t, 0.09, 0.09, 1400);
-      if (song.hat[s]) this.nz(t, 0.03, 0.05, 7000);
+      if (song.snare[s]) this.nz(t, 0.09, 0.09, 1400, this.musicGain);
+      if (song.hat[s]) this.nz(t, 0.03, 0.05, 7000, this.musicGain);
 
       this.beat++;
       this.songT += song.stepDur;
@@ -267,6 +277,8 @@ export class AudioSystem {
     const t = this.ctx.currentTime;
     switch (name) {
       // Species voices (tiny, characterful)
+      case 'batonriff': this.tone(523, t, 0.06, 'triangle', 0.10); this.tone(659, t + 0.06, 0.06, 'triangle', 0.10); this.tone(784, t + 0.12, 0.09, 'triangle', 0.12); break;
+      case 'boomlet': this.tone(220, t, 0.14, 'square', 0.13, null, 90); this.nz(t, 0.1, 0.08, 900); break;
       case 'drumriff': this.tone(85, t, 0.07, 'square', 0.14, null, 55); this.tone(85, t + 0.09, 0.07, 'square', 0.14, null, 55); this.tone(62, t + 0.18, 0.12, 'square', 0.18, null, 40); break;
       case 'stringriff': this.tone(392, t, 0.16, 'sawtooth', 0.09, null, 587, 14); this.tone(587, t + 0.14, 0.2, 'sawtooth', 0.08, null, 784, 14); break;
       case 'ribbit': this.tone(160, t, 0.09, 'square', 0.10, null, 90); this.tone(140, t + 0.08, 0.07, 'square', 0.08, null, 180); break;

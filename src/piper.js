@@ -198,6 +198,24 @@ export class Piper {
         ctx.beginPath(); ctx.moveTo(2, -9); ctx.lineTo(8, -15 + w); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(8, -9); ctx.lineTo(14, -14 - w); ctx.stroke();
       }
+    } else if (this.char.id === 'echo') {
+      // Slick conductor hair + bow tie + tails.
+      ctx.fillStyle = '#2b2b2b';
+      ctx.beginPath(); ctx.arc(0, -14.5, 6.8, 3.14, 6.29); ctx.fill();
+      ctx.fillStyle = '#2b2b2b';
+      ctx.beginPath(); ctx.moveTo(-7, 4); ctx.lineTo(-10, 12); ctx.lineTo(-4, 6); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(7, 4); ctx.lineTo(10, 12); ctx.lineTo(4, 6); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#ffd966';
+      ctx.beginPath(); ctx.moveTo(-3, -6); ctx.lineTo(0, -4); ctx.lineTo(3, -6); ctx.lineTo(0, -8); ctx.closePath(); ctx.fill();
+      // Eye.
+      ctx.fillStyle = '#2b2b2b';
+      ctx.fillRect(2.5, -13, 2, 2.4);
+      // The baton — always out; waves harder while conducting.
+      const wave2 = this.whistleAnim > 0 ? Math.sin(this.walk * 5) * 4 : 0;
+      ctx.strokeStyle = '#f0f0f0'; ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.moveTo(6, -8); ctx.lineTo(15, -16 + wave2); ctx.stroke();
+      ctx.fillStyle = '#c9a05a';
+      ctx.beginPath(); ctx.arc(6, -8, 1.6, 0, 6.29); ctx.fill();
     } else {
       // Big band hat.
       ctx.fillStyle = this.color;

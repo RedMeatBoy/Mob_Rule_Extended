@@ -243,6 +243,7 @@ export class MobSystem {
   recallOne(game, piper) {
     const hunters = this.list.filter(c => !c.bagged && !c._gone && c.duty === 'attack' && c.owner === piper.slot);
     if (!hunters.length) return null;
+    const arming = piper.char && piper.char.echoBoom;
     let best = hunters[0], bd = Infinity;
     for (const c of hunters) {
       const d = dist2(c.x, c.y, piper.x, piper.y);
@@ -250,6 +251,7 @@ export class MobSystem {
     }
     best.duty = 'shield';
     best.target = null;
+    if (arming) best.echoPending = true;
     game.fx.ring(best.x, best.y, 20, '#aef2ff', 0.3);
     game.audio.sfx('recall');
     return best;
@@ -329,6 +331,22 @@ export class MobSystem {
           c.vx = (dx / d) * spd * rush;
           c.vy = (dy / d) * spd * rush;
         } else { c.vx *= 0.7; c.vy *= 0.7; }
+        // ECHO's shockwave: a recalled critter BOOMS as it rejoins the wall.
+        if (c.echoPending && d < 130) {
+          c.echoPending = false;
+          const boom = this.dmgOf(c) * 1.6 + 4;
+          let hitAny = false;
+          game.enemies.grid.query(c.x, c.y, 95, e2 => {
+            if (e2.dead) return;
+            const dx2 = e2.x - c.x, dy2 = e2.y - c.y;
+            const dd2 = Math.hypot(dx2, dy2) || 1;
+            game.enemies.hurt(game, e2, boom, c, { kx: dx2 / dd2 * 180, ky: dy2 / dd2 * 180 });
+            hitAny = true;
+          });
+          game.fx.ring(c.x, c.y, 95, '#c792ea', 0.45);
+          game.fx.sparks(c.x, c.y, hitAny ? 12 : 6);
+          game.audio.sfx('boomlet');
+        }
         if (def.role === 'heal') this.healInPlace(c, def, game);
         else this.attackInPlace(c, def, game, statFor(c.sp, c.tier, 'size') * this.sizeMul);
         // The shield is where you heal (FIELD MEDIC trains this higher).

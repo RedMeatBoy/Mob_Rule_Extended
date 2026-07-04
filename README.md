@@ -97,6 +97,10 @@ Three musicians, same two buttons, totally different feel:
 - **🎻 VIVI THE FIDDLER** — pink dress, big bows, bigger brain: her music
   **slows robots** that touch the shield and recalls come home lightning-fast.
   Her hunters hit a little softer.
+- **🎼 ECHO THE CONDUCTOR** — recall is the weapon: every critter called
+  home **detonates a shockwave** as it rejoins the wall. Send them out,
+  pull them back through the enemy line, boom. Hunters hit 10% softer —
+  the boom is the point.
 
 Plus **3 save files** — everyone in the family gets their own progress.
 (Deleting asks twice, out loud, so nobody loses a save by accident.)
@@ -156,7 +160,7 @@ rebuild the parade.
 ```bash
 git clone https://github.com/RedMeatBoy/Mob_Rule.git
 cd Mob_Rule && npx serve     # or python -m http.server
-node tests/engine.mjs        # 189 headless assertions
+node tests/engine.mjs        # 198 headless assertions
 node tests/simulate.mjs 24   # bot plays full runs; reports difficulty band
 node tests/perf.mjs          # 150-critter mob tick time
 ```

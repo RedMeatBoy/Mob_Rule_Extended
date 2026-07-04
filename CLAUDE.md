@@ -10,6 +10,18 @@ Space sends ONE out to hunt (hold = stream), Shift recalls one (hold = all).
 Piper has 100 HP + slow regen + apple drops (+25). Music: 5 songs 30s+ each,
 rotating every ~2 min at song boundaries.
 
+ECHO + OPTIONS: CHARACTERS[3] = echo (APPENDED — never insert mid-array,
+saved char indices!): echoBoom flag → recallOne arms c.echoPending when
+owner char has it; detonates in shield branch when d<130 (dmgOf×1.6+4,
+r95, knockback, 'boomlet' sfx, purple ring); hunterDmg 0.9 tradeoff;
+recallRush 1.35; lead 'echo' = delayed second melody tone (+0.09s, 45%).
+Piper look: slick hair, tails, gold bow tie, waving baton. Options: audio
+sfxGain bus (nz takes dest; music drums pass musicGain!), setVolumes
+(music 0.3×v, sfx 0.7×v), voiceOff gates say(); settings {musicVol, sfxVol,
+voice} per save, applied in chooseSlot; pause menu = 7 rows (music/sfx
+sliders via ◀▶, voice/mute/shake toggles, quit). ECHO sim median 10 IN
+BAND. 198 assertions.
+
 M3 WORLD TOUR (all 7 arenas complete): terrainMul(x,y,vx,vy,ov) consolidates
 water/mud/sand/arena-speedMul/hills (hill zone: center=peak, dot(pos-center,
 vel)<0 = climbing ×0.82 else ×1.15); dunes arena speedMul 0.92 (turtle

@@ -259,6 +259,14 @@ export const CHARACTERS = [
     hunterDmg: 0.85, hunterAspd: 1, nibbleMul: 1, speedMul: 1,
     recallRush: 2.5, shieldSlow: 1.2, lead: 'sawtooth', sfxSend: 'stringriff',
   },
+  {
+    id: 'echo', name: 'ECHO THE CONDUCTOR', instrument: 'baton', emoji: '🎼',
+    desc: 'Recalls are POWER: critters go BOOM when they rejoin the wall!',
+    sendCount: 1, sendCd: 0, sendStream: 0.16, recallStream: 0.11,
+    hunterDmg: 0.9, hunterAspd: 1, nibbleMul: 1, speedMul: 1,
+    recallRush: 1.35, shieldSlow: 0, lead: 'echo', sfxSend: 'batonriff',
+    echoBoom: true,
+  },
 ];
 
 // ---- Difficulty ladder. Beat wave 12 to unlock the next one. Harder runs

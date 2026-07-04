@@ -81,7 +81,7 @@ export class Game {
   defaultSave() {
     return {
       acorns: 0, bestWave: 0, wins: 0, biggestMob: 0,
-      settings: { muted: false, shake: true }, little: [false, false], chars: [0, 0],
+      settings: { muted: false, shake: true, musicVol: 1, sfxVol: 1, voice: true }, little: [false, false], chars: [0, 0],
       roster: ['frog', 'duck', 'goat', 'bee', 'turtle', 'bunny'],
       loadouts: [[], []],
       levels: {},        // permanent species training: sp -> 0..9
@@ -138,6 +138,9 @@ export class Game {
     this.persist();
     this.fx.shakeEnabled = this.save.settings.shake;
     this.audio.setMuted(this.save.settings.muted);
+    this.audio.setVolumes(this.save.settings.musicVol != null ? this.save.settings.musicVol : 1,
+      this.save.settings.sfxVol != null ? this.save.settings.sfxVol : 1);
+    this.audio.voiceOff = this.save.settings.voice === false;
     this.state = 'title';
   }
   deleteSlot(i) { try { localStorage.removeItem(SLOT_KEY(i)); } catch (e) {} }

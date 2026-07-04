@@ -508,7 +508,7 @@ console.log('M) Round 6: BUNNYTRON + acorn-fed growth:');
 console.log('N) Phase A: save slots + BAM & VIVI:');
 {
   const { CHARACTERS } = await load('src/data.js');
-  check(CHARACTERS.length === 3 && CHARACTERS[1].id === 'bam' && CHARACTERS[2].id === 'vivi', 'three characters exist');
+  check(CHARACTERS.length === 4 && CHARACTERS[1].id === 'bam' && CHARACTERS[2].id === 'vivi', 'four characters exist');
   // Save slots: legacy migrates to slot 0; slots are independent; delete works.
   store.clear();
   store.set('mob_rule_v1', JSON.stringify({ acorns: 777, bestWave: 9 }));
@@ -1085,6 +1085,65 @@ console.log('U) M3: quarry hills, dune sand, rooftop vents + security bots:');
   }
   g.input.keys.delete('KeyD');
   check(!wedged, 'the no-maze law holds on the rooftop');
+}
+
+console.log('V) ECHO the Conductor + options:');
+{
+  const { CHARACTERS } = await load('src/data.js');
+  check(CHARACTERS.length === 4 && CHARACTERS[3].id === 'echo' && CHARACTERS[2].id === 'vivi', 'ECHO appended at index 3 (saved char picks unshifted)');
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  g.save.chars = [3, 0]; // ECHO
+  g.input.assign(0, 'kb1');
+  g.startRun();
+  const p = g.players[0];
+  p.invuln = 9999;
+  check(p.char.id === 'echo', 'ECHO takes the stage');
+  // Send one out, then recall: it should come home ARMED.
+  g.input.keys.add('Space'); g.frame(1 / 60); g.input.keys.delete('Space');
+  g.frame(1 / 60);
+  const hunter = g.mob.list.find(c => c.duty === 'attack');
+  check(!!hunter, 'a hunter is out');
+  // March the hunter far away so the arming state is observable, then
+  // park a tough bot at the wall and recall.
+  hunter.x = p.x + 500; hunter.y = p.y; hunter.px = hunter.x; hunter.py = hunter.y;
+  const bot = g.enemies.spawnNow(g, 'dustbot', p.x + 60, p.y);
+  bot.sneaky = false; bot.hp = bot.maxHp = 500;
+  g.input.keys.add('ShiftLeft'); g.frame(1 / 60); g.input.keys.delete('ShiftLeft');
+  check(hunter.echoPending === true, 'recall arms the shockwave');
+  let boomed = false;
+  for (let i = 0; i < 60 * 8 && !boomed; i++) {
+    p.invuln = 9999; p.hp = p.maxHp;
+    bot.hp = Math.max(bot.hp, 400); // survive nibbles until the boom
+    g.frame(1 / 60);
+    if (!hunter.echoPending) boomed = true;
+  }
+  check(boomed, 'the shockwave fires when the critter rejoins the wall');
+  // Non-echo characters never arm it.
+  g.save.chars = [0, 0];
+  g.startRun();
+  const p2 = g.players[0];
+  g.input.keys.add('Space'); g.frame(1 / 60); g.input.keys.delete('Space');
+  g.frame(1 / 60);
+  g.input.keys.add('ShiftLeft'); g.frame(1 / 60); g.input.keys.delete('ShiftLeft');
+  check(!g.mob.list.some(c => c.echoPending), 'PIP recalls do not boom');
+}
+{
+  // Options plumbing: volumes + voice persist per save.
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  g.save.settings.musicVol = 0.3;
+  g.save.settings.sfxVol = 0.5;
+  g.save.settings.voice = false;
+  g.persist();
+  g.chooseSlot(0);
+  check(g.save.settings.musicVol === 0.3 && g.save.settings.sfxVol === 0.5, 'volume settings persist');
+  check(g.audio.voiceOff === true, 'voice toggle reaches the announcer');
+  let threw = false;
+  try { g.audio.say('should be silent'); g.audio.setVolumes(1, 1); } catch (e) { threw = true; }
+  check(!threw, 'muted voice + volume changes are safe headless');
 }
 
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);

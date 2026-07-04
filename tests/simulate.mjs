@@ -34,7 +34,7 @@ globalThis.localStorage = {
 const { Game } = await load('src/game.js');
 
 const RUNS = parseInt(process.argv[2], 10) || 20;
-const CHAR = { pip: 0, bam: 1, vivi: 2 }[process.argv[3]] ?? 0;
+const CHAR = { pip: 0, bam: 1, vivi: 2, echo: 3 }[process.argv[3]] ?? 0;
 const DIFF = parseInt(process.argv[4], 10) || 0;
 const MAXED = process.argv[5] === 'maxed';
 if (process.argv[3]) console.log(`character: ${process.argv[3]} (#${CHAR}), difficulty: ${DIFF}, ${MAXED ? 'MAXED save' : 'fresh save'}`);

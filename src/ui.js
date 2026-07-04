@@ -325,14 +325,32 @@ export class UI {
       }
       case 'run':
         if (g.paused) {
-          const n = 4;
+          const n = 7;
+          const st = g.save.settings;
           if (inp.anyMenu('up')) { this.pauseIdx = (this.pauseIdx + n - 1) % n; g.audio.sfx('uiMove'); }
           if (inp.anyMenu('down')) { this.pauseIdx = (this.pauseIdx + 1) % n; g.audio.sfx('uiMove'); }
+          const dir = inp.anyMenu('right') ? 1 : inp.anyMenu('left') ? -1 : 0;
+          if (dir && this.pauseIdx === 1) {
+            st.musicVol = Math.round(Math.max(0, Math.min(1, (st.musicVol != null ? st.musicVol : 1) + dir * 0.1)) * 10) / 10;
+            g.audio.setVolumes(st.musicVol, st.sfxVol != null ? st.sfxVol : 1);
+            g.persist(); g.audio.sfx('uiMove');
+          }
+          if (dir && this.pauseIdx === 2) {
+            st.sfxVol = Math.round(Math.max(0, Math.min(1, (st.sfxVol != null ? st.sfxVol : 1) + dir * 0.1)) * 10) / 10;
+            g.audio.setVolumes(st.musicVol != null ? st.musicVol : 1, st.sfxVol);
+            g.persist(); g.audio.sfx('uiPick');
+          }
           if (inp.anyPressed('confirm')) {
             if (this.pauseIdx === 0) g.paused = false;
-            else if (this.pauseIdx === 1) g.setMuted(!g.audio.muted);
-            else if (this.pauseIdx === 2) g.setShake(!g.fx.shakeEnabled);
-            else { g.quitToTitle(); }
+            else if (this.pauseIdx === 3) {
+              st.voice = st.voice === false;
+              g.audio.voiceOff = st.voice === false;
+              g.persist();
+              if (st.voice) g.audio.say('The announcer is back!', true);
+            }
+            else if (this.pauseIdx === 4) g.setMuted(!g.audio.muted);
+            else if (this.pauseIdx === 5) g.setShake(!g.fx.shakeEnabled);
+            else if (this.pauseIdx === 6) { g.quitToTitle(); }
             g.audio.sfx('uiPick');
           }
         }
@@ -1119,11 +1137,21 @@ export class UI {
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffd166';
     ctx.fillText(g.pauseReason ? '🎮 ' + g.pauseReason.toUpperCase() : 'PAUSED', VIEW_W / 2, 200);
-    const items = ['Keep marching', `Sound: ${g.audio.muted ? 'OFF' : 'on'}`, `Screen shake: ${g.fx.shakeEnabled ? 'on' : 'off'}`, 'Disband (quit)'];
+    const st = g.save.settings;
+    const bar = v => { const k = Math.round((v != null ? v : 1) * 10); return '▮'.repeat(k) + '▯'.repeat(10 - k); };
+    const items = [
+      'Keep marching',
+      `Music: ◀ ${bar(st.musicVol)} ▶`,
+      `Sounds: ◀ ${bar(st.sfxVol)} ▶`,
+      `Announcer voice: ${st.voice === false ? 'OFF' : 'on'}`,
+      `All sound: ${g.audio.muted ? 'OFF' : 'on'}`,
+      `Screen shake: ${g.fx.shakeEnabled ? 'on' : 'off'}`,
+      'Disband (quit)',
+    ];
     items.forEach((s, i) => {
-      ctx.font = `bold 22px ${FONT}`;
+      ctx.font = `bold 21px ${FONT}`;
       ctx.fillStyle = this.pauseIdx === i ? '#ffd166' : '#d8ecc8';
-      ctx.fillText((this.pauseIdx === i ? '🐸 ' : '') + s, VIEW_W / 2, 280 + i * 48);
+      ctx.fillText((this.pauseIdx === i ? '🐸 ' : '') + s, VIEW_W / 2, 268 + i * 42);
     });
   }
 
