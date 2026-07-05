@@ -2,7 +2,7 @@
 // crossroads picks, camera, meta unlocks.
 
 import { Pool, clamp, lerp, dist2, randRange, weightedPick, mulberry32, slideObstacles } from './pool.js';
-import { SPECIES, SPECIES_IDS, WAVES, CHOICES, UNLOCK_ORDER, MOB_CAP, CHARACTERS, DIFFICULTIES, TRAIN_COSTS, PIPER_UPGRADES, CHALLENGES, SPICES, ARENAS, WEATHER, VENT } from './data.js';
+import { SPECIES, SPECIES_IDS, WAVES, CHOICES, UNLOCK_ORDER, MOB_CAP, CHARACTERS, DIFFICULTIES, TRAIN_COSTS, PIPER_UPGRADES, CHALLENGES, SPICES, ARENAS, WEATHER, VENT, ENEMIES } from './data.js';
 import { MobSystem } from './critters.js';
 import { EnemySystem } from './enemies.js';
 import { Piper } from './piper.js';
@@ -216,9 +216,75 @@ export class Game {
   unlockedList() { return SPECIES_IDS.filter(sp => this.unlocked(sp)); }
   shake(n) { this.fx.shake(n); }
 
-  // ---------- run flow ----------
+  // ---------- THE TESTING LAB (sandbox for the fun audit) ----------
+  startSandbox() {
+    const lab = this.lab || (this.lab = { arena: 0, char: 0, diff: 0, wave: 1, sp: 0, foe: 0 });
+    this._inLab = true;
+    this.startRun();
+    this._inLab = false;
+    this.sandbox = true;
+    // Override the run with lab settings (startRun used save defaults).
+    this.arenaDef = ARENAS[lab.arena];
+    this.obstacles = this.arenaDef.obstacles || [];
+    this.zones = this.arenaDef.zones || [];
+    this.vents = (this.arenaDef.vents || []).map((v, i) => ({ x: v.x, y: v.y, phase: i * 1.9, pulseT: 0 }));
+    this.players.length = 1;
+    const P0 = this.players[0];
+    const px = P0.x, py = P0.y;
+    this.players[0] = new Piper(0, px, py, this.save.little[0], CHARACTERS[lab.char]);
+    this.waveNum = lab.wave;
+    this.waveT = 9e9;            // the clock never runs out
+    this.sandboxWaves = false;   // V toggles real wave spawning
+    this.wallet = 999;
+    this.labMsg = 'LAB: [ ] critter · , . enemy · 1/2/3 spawn tier · E foe · R elite · X clear · V waves · I invuln · H heal · +/- wave';
+    this.audio.say('Testing lab! Spawn anything!', true);
+  }
+  labKey(code) { // edge-detected in tick
+    const lab = this.lab;
+    const p = this.players[0];
+    const spawnAt = () => ({ x: clamp(p.x + randRange(-80, 80), 60, this.arena.w - 60), y: clamp(p.y + randRange(-80, 80), 60, this.arena.h - 60) });
+    if (code === 'BracketLeft') { lab.sp = (lab.sp + SPECIES_IDS.length - 1) % SPECIES_IDS.length; this.labNote('critter: ' + SPECIES[SPECIES_IDS[lab.sp]].name); }
+    if (code === 'BracketRight') { lab.sp = (lab.sp + 1) % SPECIES_IDS.length; this.labNote('critter: ' + SPECIES[SPECIES_IDS[lab.sp]].name); }
+    const FOES = Object.keys(ENEMIES);
+    if (code === 'Comma') { lab.foe = (lab.foe + FOES.length - 1) % FOES.length; this.labNote('enemy: ' + ENEMIES[FOES[lab.foe]].name); }
+    if (code === 'Period') { lab.foe = (lab.foe + 1) % FOES.length; this.labNote('enemy: ' + ENEMIES[FOES[lab.foe]].name); }
+    if (code === 'Digit1' || code === 'Digit2' || code === 'Digit3') {
+      const t = Number(code.slice(-1));
+      const s2 = spawnAt();
+      this.mob.add(this, SPECIES_IDS[lab.sp], t, s2.x, s2.y, 0);
+    }
+    if (code === 'KeyE' || code === 'KeyR') {
+      const s2 = spawnAt();
+      const far = { x: clamp(s2.x + 260, 60, this.arena.w - 60), y: s2.y };
+      this.enemies.spawnNow(this, FOES[lab.foe], far.x, far.y, code === 'KeyR');
+    }
+    if (code === 'KeyX') {
+      const P2 = this.enemies.pool;
+      for (let i = 0; i < P2.n; i++) P2.get(i).dead = true;
+      this.boss = null;
+      this.enemies.telegraphs.length = 0;
+      this.labNote('enemies cleared');
+    }
+    if (code === 'KeyH') {
+      for (const q of this.players) { q.hp = q.maxHp; if (q.downed) q.revive(this); }
+      for (const c of this.mob.list) if (c && !c._gone) c.hp = this.mob.maxHp(c.sp, c.tier);
+      this.labNote('all healed');
+    }
+    if (code === 'KeyI') { this.labInvuln = !this.labInvuln; this.labNote('invulnerable: ' + (this.labInvuln ? 'ON' : 'off')); }
+    if (code === 'KeyV') {
+      this.sandboxWaves = !this.sandboxWaves;
+      this.waveT = this.sandboxWaves ? this.waveDef(this.waveNum).duration : 9e9;
+      this.labNote('wave spawns: ' + (this.sandboxWaves ? 'ON (wave ' + this.waveNum + ')' : 'off'));
+    }
+    if (code === 'Minus') { this.waveNum = Math.max(1, this.waveNum - 1); this.labNote('wave scaling: ' + this.waveNum); }
+    if (code === 'Equal') { this.waveNum += 1; this.labNote('wave scaling: ' + this.waveNum); }
+    if (code === 'KeyG') { this.wallet += 100; this.labNote('+100 wallet'); }
+  }
+  labNote(t) { this.fx.notice(this.players[0].x, this.players[0].y - 40, t, '#8fd0ff', 14); }
+
   startRun() {
     if (this.slotIdx == null) { this.slotIdx = 0; this.save = this.loadSlot(0) || this.defaultSave(); }
+    if (!this._inLab) this.sandbox = false;
     this.mob = new MobSystem();
     this.enemies.clear();
     this.proj.clear(); this.acornsList.clear();
@@ -393,6 +459,7 @@ export class Game {
   }
 
   endRun(won, cause) {
+    if (this.sandbox) { this.sandbox = false; this.quitToTitle(); return; }
     if (!won && this.state === 'run' && this.save.secondChances > 0) {
       this.useSecondChance();
       return;
@@ -860,6 +927,17 @@ export class Game {
       }
       if (near) { p.reviveP += dt / 3; if (p.reviveP >= 1) p.revive(this); }
       else p.reviveP = Math.max(0, p.reviveP - dt * 0.5);
+    }
+
+    // TESTING LAB: hotkeys (edge-detected), god mode, no auto-anything.
+    if (this.sandbox) {
+      if (!this.labPrev) this.labPrev = new Set();
+      for (const code of this.input.keys) {
+        if (!this.labPrev.has(code)) this.labKey(code);
+      }
+      this.labPrev = new Set(this.input.keys);
+      if (this.labInvuln) for (const q of this.players) { q.invuln = 2; q.hp = Math.max(q.hp, 1); }
+      this.rescueT = 999; // no rescue drip in the lab
     }
 
     // WEATHER: arena-flavored events with a spoken telegraph.

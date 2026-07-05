@@ -37,7 +37,7 @@ export class EnemySystem {
 
   spawnNow(game, kind, x, y, elite) {
     const def = ENEMIES[kind];
-    const sc = enemyScale(game.waveNum, game.save.diff || 0);
+    const sc = enemyScale(game.waveNum, game.sandbox && game.lab ? game.lab.diff : (game.save.diff || 0));
     const e = this.pool.alloc();
     e.x = e.px = x; e.y = e.py = y;
     e.vx = 0; e.vy = 0;

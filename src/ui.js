@@ -2,7 +2,7 @@
 // title/end/pause screens. Every screen works on keyboard and controller.
 
 import { clamp, lerp } from './pool.js';
-import { SPECIES, SPECIES_IDS, WAVES, UNLOCK_ORDER, MOB_CAP, TIPS, DEFEAT_LINES, VICTORY_LINES, CHARACTERS, DIFFICULTIES, PIPER_UPGRADES, TRAIN_COSTS, CHALLENGES, SPICES, ARENAS } from './data.js';
+import { SPECIES, SPECIES_IDS, WAVES, UNLOCK_ORDER, MOB_CAP, TIPS, DEFEAT_LINES, VICTORY_LINES, CHARACTERS, DIFFICULTIES, PIPER_UPGRADES, TRAIN_COSTS, CHALLENGES, SPICES, ARENAS, ENEMIES } from './data.js';
 import { statFor, drawCrown } from './critters.js';
 import { PIPER_COLORS, Piper } from './piper.js';
 import { VIEW_W, VIEW_H } from './game.js';
@@ -184,7 +184,7 @@ export class UI {
           g.audio.say(g.save.classicArt ? 'Classic art mode! So retro!' : 'Kawaii mode!', true);
         }
         this.artKeyHeld = bHeld;
-        const n = 11;
+        const n = 12;
         if (inp.anyMenu('up')) { this.menuIdx = (this.menuIdx + n - 1) % n; g.audio.sfx('uiMove'); }
         if (inp.anyMenu('down')) { this.menuIdx = (this.menuIdx + 1) % n; g.audio.sfx('uiMove'); }
         const dir = inp.anyMenu('right') ? 1 : inp.anyMenu('left') ? -1 : 0;
@@ -238,7 +238,12 @@ export class UI {
             g.state = 'quests'; this.questIdx = 0;
             g.audio.say('Quests! Finish them for acorn bounties!', true);
           }
-          else if (this.menuIdx === 9) g.setMuted(!g.audio.muted);
+          else if (this.menuIdx === 9) {
+            g.state = 'labconfig';
+            if (!g.lab) g.lab = { arena: 0, char: 0, diff: 0, wave: 1, sp: 0, foe: 0 };
+            this.labRow = 0;
+          }
+          else if (this.menuIdx === 10) g.setMuted(!g.audio.muted);
           else { g.state = 'saves'; this.saveMode = 'pick'; this.saveBtn = 0; }
           g.audio.sfx('uiPick');
         }
@@ -372,6 +377,25 @@ export class UI {
           } else g.quitToTitle();
         }
         break;
+      case 'labconfig': {
+        const lab = g.lab;
+        const rows = 5; // arena, character, difficulty, wave, START
+        if (inp.anyMenu('up')) { this.labRow = (this.labRow + rows - 1) % rows; g.audio.sfx('uiMove'); }
+        if (inp.anyMenu('down')) { this.labRow = (this.labRow + 1) % rows; g.audio.sfx('uiMove'); }
+        const dir = inp.anyMenu('right') ? 1 : inp.anyMenu('left') ? -1 : 0;
+        if (dir) {
+          if (this.labRow === 0) lab.arena = (lab.arena + dir + ARENAS.length) % ARENAS.length;
+          if (this.labRow === 1) lab.char = (lab.char + dir + CHARACTERS.length) % CHARACTERS.length;
+          if (this.labRow === 2) lab.diff = (lab.diff + dir + DIFFICULTIES.length) % DIFFICULTIES.length;
+          if (this.labRow === 3) lab.wave = Math.max(1, Math.min(20, lab.wave + dir));
+          g.audio.sfx('uiMove');
+        }
+        if (inp.anyPressed('back')) { g.state = 'title'; g.audio.sfx('uiMove'); }
+        else if (inp.anyPressed('confirm')) {
+          if (this.labRow === 4) { g.audio.sfx('uiPick'); g.startSandbox(); }
+        }
+        break;
+      }
       case 'quests': {
         if (inp.anyPressed('back') || inp.anyPressed('confirm')) { g.state = 'title'; g.audio.sfx('uiPick'); }
         break;
@@ -430,6 +454,7 @@ export class UI {
       case 'draft': this.renderDraft(ctx); break;
       case 'train': this.renderTrain(ctx); break;
       case 'quests': this.renderQuests(ctx); break;
+      case 'labconfig': this.renderLabConfig(ctx); break;
       case 'run': this.renderWorld(ctx); this.renderWeather(ctx); this.renderHUD(ctx); if (g.paused) this.renderPause(ctx); break;
       case 'crossroads': this.renderWorld(ctx); this.renderCrossroads(ctx); break;
       case 'gameover': this.renderWorld(ctx); this.renderEnd(ctx, false); break;
@@ -808,7 +833,25 @@ export class UI {
     ctx.fillText(label, VIEW_W / 2, 112);
   }
 
+  renderLabOverlay(ctx) {
+    const g = this.g;
+    const lab = g.lab;
+    const FOES = Object.keys(ENEMIES);
+    ctx.fillStyle = 'rgba(20,25,35,0.75)';
+    rr(ctx, 8, VIEW_H - 76, 700, 66, 10); ctx.fill();
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 15px ' + FONT;
+    ctx.fillStyle = '#8fd0ff';
+    ctx.fillText('🧪 LAB   critter: ' + SPECIES[SPECIES_IDS[lab.sp]].name + '   enemy: ' + ENEMIES[FOES[lab.foe]].name
+      + '   wave: ' + g.waveNum + (g.sandboxWaves ? ' (spawning!)' : '') + (g.labInvuln ? '   INVULNERABLE' : ''), 20, VIEW_H - 52);
+    ctx.font = '13px ' + FONT;
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.fillText('[ ] critter · 1/2/3 tier · , . enemy · E/R spawn/elite · X clear · V waves · +/− wave · I invuln · H heal · G acorns', 20, VIEW_H - 30);
+    ctx.textAlign = 'center';
+  }
+
   renderHUD(ctx) {
+    if (this.g.sandbox) this.renderLabOverlay(ctx);
     const g = this.g;
     // THE MOB COUNTER — the star of the HUD.
     const mc = g.mob.count();
@@ -1545,6 +1588,36 @@ export class UI {
     ctx.fillText('🐸 MARCH!', VIEW_W / 2, gy + 38);
   }
 
+  renderLabConfig(ctx) {
+    const g = this.g;
+    const lab = g.lab;
+    ctx.fillStyle = '#2a2f3a';
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 44px ' + FONT;
+    ctx.fillStyle = '#8fd0ff';
+    ctx.fillText('🧪 TESTING LAB', VIEW_W / 2, 110);
+    ctx.font = '17px ' + FONT;
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText('the fun & balance audit bench — lab runs never bank or unlock anything', VIEW_W / 2, 148);
+    const rows = [
+      'Arena: ◀ ' + ARENAS[lab.arena].emoji + ' ' + ARENAS[lab.arena].name + ' ▶',
+      'Character: ◀ ' + CHARACTERS[lab.char].emoji + ' ' + CHARACTERS[lab.char].name + ' ▶',
+      'Difficulty: ◀ ' + DIFFICULTIES[lab.diff].name + ' ▶',
+      'Wave scaling: ◀ ' + lab.wave + ' ▶',
+      '▶ ENTER THE LAB',
+    ];
+    rows.forEach((s, i) => {
+      ctx.font = 'bold ' + (i === 4 ? 30 : 24) + 'px ' + FONT;
+      ctx.fillStyle = this.labRow === i ? '#8fd0ff' : 'rgba(255,255,255,0.75)';
+      ctx.fillText((this.labRow === i ? '🧪 ' : '') + s, VIEW_W / 2, 230 + i * 62);
+    });
+    ctx.font = 'bold 15px ' + FONT;
+    ctx.fillStyle = '#ffd166';
+    ctx.fillText('IN THE LAB:  [ ]  pick critter · 1/2/3 spawn tier · , . pick enemy · E spawn · R elite', VIEW_W / 2, 600);
+    ctx.fillText('X clear foes · V real waves on/off · +/− wave scaling · I invulnerable · H heal all · G +100 acorns · Esc quit', VIEW_W / 2, 626);
+  }
+
   renderQuests(ctx) {
     const g = this.g;
     const grd = ctx.createLinearGradient(0, 0, 0, VIEW_H);
@@ -1792,6 +1865,7 @@ export class UI {
       `P2 Little Piper mode: ${g.save.little[1] ? 'ON ★' : 'off'}`,
       `🏋️ TRAINING CAMP  (bank: ${g.save.acorns}🌰)`,
       `⭐ QUESTS`,
+      '🧪 TESTING LAB',
       `Sound: ${g.audio.muted ? 'OFF' : 'ON'}`,
       `SAVE FILES  (playing save ${(g.slotIdx || 0) + 1})`,
     ];

@@ -81,8 +81,20 @@ try {
   for (const p of g.players) { p.invuln = 0; p.hurt(g, 99999, null); }
   step(5);
   if (g.draftOffers && g.draftOffers.length) { g.state = 'draft'; g.ui.draftIdx = 0; step(5); }
+  stage = 'testing lab config';
+  g.state = 'labconfig';
+  g.lab = { arena: 3, char: 2, diff: 2, wave: 8, sp: 0, foe: 0 };
+  g.ui.labRow = 0;
+  step(5);
+  stage = 'testing lab run';
+  g.startSandbox();
+  g.input.keys.add('Digit3'); step(2); g.input.keys.delete('Digit3');
+  g.input.keys.add('KeyE'); step(2); g.input.keys.delete('KeyE');
+  g.input.keys.add('KeyV'); step(2); g.input.keys.delete('KeyV');
+  step(60);
+
   stage = 'pause';
-  g.state = 'run'; g.paused = true; step(5);
+  g.sandbox = false; g.state = 'run'; g.paused = true; step(5);
 
   console.log('RENDER SMOKE: ALL SCREENS OK');
   process.exit(0);

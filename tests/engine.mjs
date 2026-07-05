@@ -1172,5 +1172,36 @@ console.log('W) Verdict round: giant bosses + pop-up click-guard:');
   check(g.ui.cards.length < cardsBefore || g.ui.shopMode || g.state === 'run', 'after the grace window, picks work normally');
 }
 
+console.log('X) The Testing Lab:');
+{
+  store.clear();
+  const g = new Game(null);
+  g.chooseSlot(0);
+  g.input.assign(0, 'kb1');
+  g.lab = { arena: 2, char: 1, diff: 3, wave: 9, sp: 5, foe: 0 };
+  g.startSandbox();
+  check(g.sandbox && g.state === 'run', 'the lab boots into a live sandbox');
+  check(g.arenaDef.id === 'farm' && g.players[0].char.id === 'bam', 'lab honors arena + character picks', g.arenaDef.id + '/' + g.players[0].char.id);
+  // Nothing spawns on its own.
+  for (let i = 0; i < 60 * 4; i++) g.frame(1 / 60);
+  check(g.enemies.count() === 0 && g.enemies.telegraphs.length === 0, 'no auto-spawns in the lab');
+  // Hotkeys: spawn a tier-3 critter and an elite enemy.
+  const worth = () => g.mob.list.reduce((s, c) => s + 3 ** (c.tier - 1), 0);
+  const w0 = worth();
+  g.input.keys.add('Digit3'); g.frame(1 / 60); g.input.keys.delete('Digit3'); g.frame(1 / 60);
+  check(worth() >= w0 + 9, 'Digit3 spawns a tier-3 of the selected species', 'worth ' + w0 + '->' + worth());
+  g.input.keys.add('KeyE'); g.frame(1 / 60); g.input.keys.delete('KeyE'); g.frame(1 / 60);
+  check(g.enemies.count() >= 1, 'E spawns the selected enemy');
+  // Lab difficulty (3 = DEEP CLEAN, hp x2.2) drives scaling, not the save.
+  const bot = g.enemies.pool.get(0);
+  const diff0hp = 10 * (1 + 0.21 * (g.waveNum - 1)); // dustbot base at GARDEN PARTY
+  check(bot.maxHp > diff0hp * 1.5, 'lab difficulty scales enemies', 'hp=' + bot.maxHp.toFixed(1) + ' vs d0=' + diff0hp.toFixed(1));
+  // Lab runs never bank.
+  const bank = g.save.acorns;
+  g.wallet = 500;
+  for (const q of g.players) { q.invuln = 0; q.hurt(g, 99999, null); }
+  check(g.state === 'title' && g.save.acorns === bank, 'lab deaths quit home without banking', g.state);
+  check(!g.sandbox, 'sandbox flag clears on exit');
+}
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);
 process.exit(failed ? 1 : 0);
